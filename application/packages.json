@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "name": "@avenir-bank/application",
+  "description": "Application for AVENIR Bank",
+  "version": "0.1.0"
+}

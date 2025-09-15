@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "name": "@avenir-bank/domain",
+  "description": "Domain for AVENIR Bank",
+  "version": "0.1.0"
+}

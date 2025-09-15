@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "name": "@avenir-bank/infrastructure/server",
+  "description": "Server infrastructure for AVENIR Bank",
+  "version": "0.1.0"
+}

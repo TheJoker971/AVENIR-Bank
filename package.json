@@ -1,0 +1,26 @@
+{
+  "name": "avenir-bank",
+  "version": "1.0.0",
+  "description": "Architecture Project 2025 5IBC",
+  "homepage": "https://github.com/TheJoker971/AVENIR-Bank#readme",
+  "bugs": {
+    "url": "https://github.com/TheJoker971/AVENIR-Bank/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheJoker971/AVENIR-Bank.git"
+  },
+  "license": "ISC",
+  "author": "Jsegor",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@types/node": "^24.4.0"
+  }
+}
