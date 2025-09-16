@@ -1,0 +1,1 @@
+export type CountryCode = "FR" | "DE" | "ES" | "IT" ;
