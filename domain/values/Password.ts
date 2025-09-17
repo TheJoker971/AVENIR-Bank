@@ -1,7 +1,7 @@
 import { PasswordInvalidError } from "../errors/PasswordInvalidError";
 
 export class Password {
-    private value:string;
+    public value:string;
 
     public static isPassword(value:string): Password | PasswordInvalidError {
         // return new Password(value) if regex and length are ok else return PasswordInvalidError
@@ -21,9 +21,5 @@ export class Password {
     private constructor(value:string){
         
         this.value = value;
-    }
-
-    public getValue():string{
-        return this.value;
     }
 }

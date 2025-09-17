@@ -3,7 +3,6 @@ import { RoleInvalidError } from "domain/errors/RoleInvalidError";
 export type RoleType = "ADMIN" | "DIRECTOR" | "ADVISE" | "CLIENT";
 
 export class Role {
-  private role: RoleType;
 
   private static readonly validRoles: RoleType[] = [
     "ADMIN",
@@ -20,13 +19,7 @@ export class Role {
     }
   }
 
-  private constructor(role: RoleType) {
-    this.role = role;
-  }
-
-  public getRole(): RoleType {
-    return this.role;
-  }
+  private constructor(public value: RoleType) {}
 }
 
 

@@ -34,7 +34,7 @@ export class UserEntity {
         return new UserEntity(id,firstname,lastname,emailOrError,passwordOrError,address,roleOrError);
     }
 
-    constructor(public id:number,
+    private constructor(public id:number,
         public firstname:string,
         public lastname:string,
         public email:Email,

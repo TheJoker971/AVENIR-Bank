@@ -1,7 +1,6 @@
 import { EmailInvalidError } from "domain/errors/EmailInvalidError";
 
 export class Email {
-    private email:string;
 
     public static isEmail(email:string): Email | EmailInvalidError {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,11 +11,6 @@ export class Email {
         }
     }
 
-    private constructor(email:string) {
-        this.email = email;
-    }
-
-    public getEmail(): string {
-        return this.email;
+    private constructor(public value:string) {
     }
 }

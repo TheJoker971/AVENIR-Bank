@@ -1,11 +1,42 @@
-export class AccountEntity {
-    iban:string;
-    balance:number;
-    userId:number;
+import { AccountNumber } from "domain/values/AccountNumber";
+import { BankCode } from "domain/values/BankCode";
+import { BranchCode } from "domain/values/BranchCode";
+import { CountryCode } from "domain/values/CountryCode";
+import { Iban } from "domain/values/Iban";
+import { RibKey } from "domain/values/RibKey";
 
-    constructor(iban:string,balance:number,userId:number){
-        this.iban = iban;
-        this.balance = balance;
-        this.userId = userId;
+export class AccountEntity {
+
+    public static create(countryCode:CountryCode,bankCode:string,branchCode:string,ribKey:string,balance:number=0) : AccountEntity | Error {
+        const accountNumberOrError = AccountNumber.generateAccountNumber();
+        if (accountNumberOrError instanceof Error) {
+            return accountNumberOrError;
+        }
+        const branchCodeOrError = BranchCode.create(branchCode);
+        if (branchCodeOrError instanceof Error) {
+            return branchCodeOrError;
+        }
+        const bankCodeOrError = BankCode.create(bankCode);
+        if (bankCodeOrError instanceof Error) {
+            return bankCodeOrError;
+        }
+        const ribKeyOrError = RibKey.create(ribKey);
+        if (ribKeyOrError instanceof Error) {
+            return ribKeyOrError;
+        }
+        const ibanOrError = Iban.create(countryCode,bankCodeOrError,branchCodeOrError,accountNumberOrError,ribKeyOrError);
+        if (ibanOrError instanceof Error) {
+            return ibanOrError;
+        }
+        return new AccountEntity(accountNumberOrError,ibanOrError,1,balance);
+    }
+
+    private constructor(
+        accountNumber:AccountNumber,
+        iban:Iban,
+        userId:number,
+        balance:number=0,
+        createdAt:Date=new Date(),
+        ){
     }
 }

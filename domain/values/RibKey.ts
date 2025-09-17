@@ -3,7 +3,6 @@ import { RibKeyInvalidError } from "domain/errors/RibKeyInvalidError";
 export type RibKeyType = string;
 
 export class RibKey {
-    ribKey:RibKeyType;
 
     public static isRibKey(ribKey:string):RibKey | RibKeyInvalidError{
         const ribKeyRegex = /^[0-9]{2}$/;
@@ -13,7 +12,6 @@ export class RibKey {
         return new RibKey(ribKey);
     }
 
-    constructor(ribKey:RibKeyType){
-        this.ribKey = ribKey;
+    constructor(public value:RibKeyType){
     }
 }

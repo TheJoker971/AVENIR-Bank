@@ -1,20 +1,24 @@
-import { IbanInvalidError } from "../errors/IbanInvalidError";
+import { AccountNumber } from "./AccountNumber";
+import { BankCode } from "./BankCode";
+import { BranchCode } from "./BranchCode";
 import { CountryCode } from "./CountryCode";
+import { RibKey } from "./RibKey";
 
 export type IbanType = string;
-export type BranchCode = string;
-export type AccountNumber = string;
+
 
 
 export class Iban {
 
-    public static create(bankCode:string,branchCode:string,accountNumber:string,ribKey:string): Iban | Error {
-        
+    public static create(countryCode:CountryCode,bankCode:BankCode,branchCode:BranchCode,accountNumber:AccountNumber,ribKey:RibKey): Iban | Error {
+        const iban = this.generateIBAN(countryCode,bankCode,branchCode,accountNumber,ribKey);
+        return new Iban(iban);
     }
 
-    private constructor(public iban:IbanType){}
 
-    private ibanChecksum(countryCode: string, bban: string): string {
+    private constructor(public value:IbanType){}
+
+    private static ibanChecksum(countryCode: string, bban: string): string {
     // étape 1 : FR00 + BBAN
     const temp = bban + countryCode.toUpperCase() + "00";
 
@@ -29,9 +33,9 @@ export class Iban {
     return checkDigits.toString().padStart(2, "0");
     }
 
-    private generateFrenchIBAN(countryCode:CountryCode,bank: BankCode, branch: BranchCode, account: AccountNumber, ribKey: RibKey): string {
-    const bban = bank + branch + account.padStart(11, "0") + ribKey;
-    const checksum = this.ibanChecksum("FR", bban);
+    private static generateIBAN(countryCode:CountryCode,bank: BankCode, branchCode: BranchCode, accountNumber: AccountNumber, ribKey: RibKey): string  {
+    const bban = bank.value + branchCode.value + accountNumber.value.padStart(11, "0") + ribKey.value;
+    const checksum = this.ibanChecksum(countryCode, bban);
     return `${countryCode}${checksum}${bban}`;
     }
 }
