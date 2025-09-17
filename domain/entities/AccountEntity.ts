@@ -28,15 +28,28 @@ export class AccountEntity {
         if (ibanOrError instanceof Error) {
             return ibanOrError;
         }
-        return new AccountEntity(accountNumberOrError,ibanOrError,1,balance);
+        return new AccountEntity(accountNumberOrError,ibanOrError,balance);
     }
 
     private constructor(
-        accountNumber:AccountNumber,
-        iban:Iban,
-        userId:number,
-        balance:number=0,
-        createdAt:Date=new Date(),
+        public accountNumber:AccountNumber,
+        public iban:Iban,
+        public balance:number=0,
+        public createdAt:Date=new Date(),
         ){
+    }
+
+    public deposit(amount:number):void{
+        if(amount>0){
+            this.balance += amount;
+        }
+    }
+
+    public withdraw(amount:number):boolean{
+        if(amount>0 && this.balance>=amount){
+            this.balance -= amount;
+            return true;
+        }
+        return false;
     }
 }
