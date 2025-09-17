@@ -1,4 +1,4 @@
-import { AccountNumberInvalidError } from "domain/errors/AccountNumberInvalidError";
+import { AccountNumberInvalidError } from "../errors/AccountNumberInvalidError";
 
 
 export type AccountNumberType = string;
