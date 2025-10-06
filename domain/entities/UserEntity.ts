@@ -46,32 +46,4 @@ export class UserEntity {
         public readonly accounts:Array<AccountEntity>=[]){
     }
 
-    public addAccount(account:AccountEntity):void{
-        this.accounts.push(account);
-    }
-
-    public ban():void{
-        this.banned = true;
-    }
-
-    public unban():void{
-        this.banned = false;
-    }
-
-    public updateAddress(newAddress:string):void{
-        this.address = newAddress;
-    }
-
-    public updatePassword(newPassword:string): Error | void {
-        const passwordOrError = Password.isPassword(newPassword);
-        if(passwordOrError instanceof Error) return passwordOrError;
-        this.password = passwordOrError;
-    }
-
-    public updateEmail(newEmail:string): Error | void {
-        const emailOrError = Email.isEmail(newEmail);
-        if(emailOrError instanceof Error) return emailOrError;
-        this.email = emailOrError;
-    }
-
 }
