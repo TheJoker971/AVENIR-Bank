@@ -36,14 +36,14 @@ export class UserEntity {
     }
 
     private constructor(public id:number,
-        public firstname:string,
-        public lastname:string,
-        public email:Email,
-        public password:Password,
-        public address:string,
-        public role:Role,
-        public banned:boolean=false,
-        public accounts:Array<AccountEntity>=[]){
+        public readonly firstname:string,
+        public readonly lastname:string,
+        public readonly email:Email,
+        public readonly password:Password,
+        public readonly address:string,
+        public readonly role:Role,
+        public readonly banned:boolean=false,
+        public readonly accounts:Array<AccountEntity>=[]){
     }
 
     public addAccount(account:AccountEntity):void{

@@ -6,9 +6,9 @@ export class BankEntity {
 
 
     private constructor(public name:string,
-        public bankCode:BankCode,
-        public branches:Array<BranchCode> = [],
-        public users:Array<UserEntity> = [],
+        public readonly bankCode:BankCode,
+        public readonly branches:Array<BranchCode> = [],
+        public readonly users:Array<UserEntity> = [],
     ){
     }
 
@@ -22,10 +22,6 @@ export class BankEntity {
 
     public addBranch(branch:BranchCode):void{
         this.branches.push(branch);
-    }
-
-    public removeBranch(branch:BranchCode):void{
-        this.branches = this.branches.filter(b => b.value !== branch.value);
     }
 
     public hasBranch(branch:BranchCode):boolean{
@@ -42,10 +38,6 @@ export class BankEntity {
 
     public addUser(user:UserEntity):void{
         this.users.push(user);
-    }
-
-    public removeUser(user:UserEntity):void{
-        this.users = this.users.filter(u => u.id !== user.id);
     }
 
     public hasUser(user:UserEntity):boolean{

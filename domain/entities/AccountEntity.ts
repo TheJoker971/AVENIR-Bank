@@ -24,24 +24,11 @@ export class AccountEntity {
     }
 
     private constructor(
-        public accountNumber:AccountNumber,
-        public iban:Iban,
-        public balance:number=0,
-        public createdAt:Date=new Date(),
+        public readonly accountNumber:AccountNumber,
+        public readonly iban:Iban,
+        public readonly balance:number=0,
+        public readonly createdAt:Date=new Date(),
         ){
     }
 
-    public deposit(amount:number):void{
-        if(amount>0){
-            this.balance += amount;
-        }
-    }
-
-    public withdraw(amount:number):boolean{
-        if(amount>0 && this.balance>=amount){
-            this.balance -= amount;
-            return true;
-        }
-        return false;
-    }
 }
