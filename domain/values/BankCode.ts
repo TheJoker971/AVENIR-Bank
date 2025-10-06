@@ -3,10 +3,8 @@ import { BankCodeInvalidError } from "domain/errors/BankCodeInvalidError";
 export type BankCodeType = string;
 
 export class BankCode {
-    value:string;
 
-    private constructor(value:string){
-        this.value = value;
+    private constructor(public value:string){
     }
 
     public static create(value:string) :BankCode | Error{
