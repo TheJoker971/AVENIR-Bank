@@ -7,7 +7,7 @@ import { RibKey } from "domain/values/RibKey";
 
 export class AccountEntity {
 
-    public static create(countryCode:CountryCode,bankCode:BankCode,branchCode:BranchCode,ribKey:string,balance:number=0) : AccountEntity | Error {
+    public static create(countryCode:CountryCode,bankCode:BankCode,branchCode:BranchCode,ribKey:string,balance:number=0,ownerID:number) : AccountEntity | Error {
         const accountNumberOrError = AccountNumber.generateAccountNumber();
         if (accountNumberOrError instanceof Error) {
             return accountNumberOrError;
@@ -20,13 +20,14 @@ export class AccountEntity {
         if (ibanOrError instanceof Error) {
             return ibanOrError;
         }
-        return new AccountEntity(accountNumberOrError,ibanOrError,balance);
+        return new AccountEntity(accountNumberOrError,ibanOrError,balance,ownerID);
     }
 
     private constructor(
         public readonly accountNumber:AccountNumber,
         public readonly iban:Iban,
         public readonly balance:number=0,
+        public readonly ownerId:number,
         public readonly createdAt:Date=new Date(),
         ){
     }

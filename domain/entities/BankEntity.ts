@@ -5,10 +5,10 @@ import { UserEntity } from "./UserEntity";
 export class BankEntity {
 
 
-    private constructor(public name:string,
+    private constructor(
+        public readonly name:string,
         public readonly bankCode:BankCode,
-        public readonly branches:Array<BranchCode> = [],
-        public readonly users:Array<UserEntity> = [],
+        public readonly branche: BranchCode,
     ){
     }
 
@@ -17,7 +17,7 @@ export class BankEntity {
         if(bankCodeOrError instanceof Error) return bankCodeOrError;
         const branchOrError = BranchCode.create(branch);
         if(branchOrError instanceof Error) return branchOrError;
-        return new BankEntity(name, bankCodeOrError, [...[],branchOrError]);
+        return new BankEntity(name, bankCodeOrError, branchOrError);
     }
 
 }

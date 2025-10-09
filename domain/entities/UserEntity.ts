@@ -35,7 +35,18 @@ export class UserEntity {
         return new UserEntity(id,firstname,lastname,emailOrError,passwordOrError,address,roleOrError);
     }
 
-    private constructor(public id:number,
+    public static create(id:number,firstname:string,lastname:string,email:string,password:string,address:string,role:string,banned:boolean) :UserEntity | Error{
+        const emailOrError = Email.isEmail(email);
+        if(emailOrError instanceof Error) return emailOrError;
+        const passwordOrError = Password.isPassword(password);
+        if(passwordOrError instanceof Error) return passwordOrError;
+        const roleOrError = Role.isRole(role);
+        if(roleOrError instanceof Error) return roleOrError;
+        return new UserEntity(id,firstname,lastname,emailOrError,passwordOrError,address,roleOrError,banned);
+    }
+
+    private constructor(
+        public readonly id:number,
         public readonly firstname:string,
         public readonly lastname:string,
         public readonly email:Email,
@@ -43,7 +54,7 @@ export class UserEntity {
         public readonly address:string,
         public readonly role:Role,
         public readonly banned:boolean=false,
-        public readonly accounts:Array<AccountEntity>=[]){
+        ){
     }
 
 }
