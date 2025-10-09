@@ -3,6 +3,7 @@ import { BranchCode } from "domain/values/BranchCode";
 import { UserEntity } from "./UserEntity";
 import { InterestRate } from "domain/values/InterestRate";
 
+
 export class BankEntity {
 
 
@@ -10,7 +11,9 @@ export class BankEntity {
         public readonly name:string,
         public readonly bankCode:BankCode,
         public readonly branche: BranchCode,
+
         public readonly interestRate : InterestRate,
+
     ){
     }
 
