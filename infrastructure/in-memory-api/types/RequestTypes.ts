@@ -1,4 +1,4 @@
-// Types pour les requêtes API
+ // Types pour les requêtes API
 
 export interface CreateAccountRequest {
   ownerId: number;

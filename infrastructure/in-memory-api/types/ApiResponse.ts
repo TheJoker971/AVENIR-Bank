@@ -31,7 +31,7 @@ export class ApiResponseBuilder {
     };
   }
 
-  static error(error: string, code?: string): ApiResponse {
+  static error<T>(error: string, code?: string): ApiResponse<T> {
     return {
       success: false,
       error,

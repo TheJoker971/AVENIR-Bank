@@ -1,6 +1,7 @@
 {
   "name": "avenir-bank",
   "version": "1.0.0",
+  "private": true,
   "description": "Architecture Project 2025 5IBC",
   "homepage": "https://github.com/TheJoker971/AVENIR-Bank#readme",
   "bugs": {

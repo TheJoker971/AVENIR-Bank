@@ -20,9 +20,6 @@ export class ExpressServer {
     // Configuration middleware
     this.setupMiddleware();
     
-    // Initialisation des repositories et services
-    this.initializeServices();
-    
     // Configuration des routes
     this.setupRoutes();
   }
@@ -176,6 +173,9 @@ export class ExpressServer {
   }
 
   public async start(): Promise<void> {
+    // Initialiser les services avant de démarrer le serveur
+    await this.initializeServices();
+    
     return new Promise((resolve) => {
       this.app.listen(this.port, () => {
         console.log(`🚀 Serveur AVENIR Bank démarré sur le port ${this.port}`);
