@@ -27,4 +27,13 @@ export class BankEntity {
         return new BankEntity(name, bankCodeOrError, branchOrError, interestRateOrError);
     }
 
+    public updateInterestRate(newRate: InterestRate): BankEntity {
+        return new BankEntity(
+            this.name,
+            this.bankCode,
+            this.branche,
+            newRate
+        );
+    }
+
 }
