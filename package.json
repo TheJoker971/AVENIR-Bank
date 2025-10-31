@@ -15,7 +15,11 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "api:in-memory": "cd infrastructure/in-memory-api && npm run dev",
+    "api:in-memory:build": "cd infrastructure/in-memory-api && npm install",
+    "api:prisma": "cd infrastructure/prisma-api && npm run dev",
+    "api:prisma:build": "cd infrastructure/prisma-api && npm install"
   },
   "devDependencies": {
     "@types/node": "^24.5.1",
