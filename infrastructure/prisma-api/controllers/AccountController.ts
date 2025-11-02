@@ -1,14 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { CreateAccountUseCase } from '../../../application/use-cases/account/CreateAccountUseCase';
 
 export class AccountController {
   private router: Router;
-  private createAccountUseCase: CreateAccountUseCase;
 
   constructor(private prisma: PrismaClient) {
     this.router = Router();
-    // Pour l'instant, on va créer les use cases avec des adaptateurs Prisma si nécessaire
     this.setupRoutes();
   }
 
