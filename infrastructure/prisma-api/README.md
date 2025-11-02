@@ -7,6 +7,7 @@ Cette API utilise Prisma ORM pour l'accès à la base de données PostgreSQL. Pa
 - Node.js (v18+)
 - PostgreSQL
 - Variables d'environnement configurées
+- npm ou yarn
 
 ## Installation
 
@@ -87,6 +88,94 @@ L'API utilise :
 - **Express** : Framework web
 - **TypeScript** : Typage statique
 - **Clean Architecture** : Séparation des préoccupations
+- **Middlewares** : Authentification, autorisation, validation, gestion d'erreurs
+
+## Authentification et Autorisation
+
+L'API utilise un système d'authentification basé sur les tokens (JWT à implémenter) et des middlewares pour gérer les rôles.
+
+### Rôles disponibles
+- **CLIENT** : Clients de la banque
+- **ADVISE** : Conseillers bancaires
+- **DIRECTOR** : Directeurs de banque
+- **ADMIN** : Administrateurs
+
+### Middlewares
+
+#### Authentification (`auth.middleware.ts`)
+- Vérifie la présence d'un token Bearer dans le header `Authorization`
+- Récupère l'utilisateur depuis la base de données
+- Ajoute l'utilisateur à `req.user`
+
+#### Autorisation (`authorization.middleware.ts`)
+- `requireClient` : Accès réservé aux clients
+- `requireAdvisor` : Accès réservé aux conseillers
+- `requireDirector` : Accès réservé aux directeurs et administrateurs
+
+#### Validation (`validation.middleware.ts`)
+- Valide les données de requête selon un schéma
+- Validateurs disponibles : email, iban, positiveNumber, etc.
+
+#### Gestion d'erreurs (`error.middleware.ts`)
+- Capture et formate toutes les erreurs
+- Gestion spéciale des erreurs Prisma
+
+## Routes par rôle
+
+### Routes publiques
+- `POST /api/auth/register` - Inscription
+- `POST /api/auth/login` - Connexion
+- `GET /api/stocks/public` - Consultation des actions (sans authentification)
+
+### Routes CLIENT (authentification requise)
+- `/api/accounts/*` - Gestion des comptes
+- `/api/operations/*` - Virements intrabancaires
+- `/api/savings-accounts/*` - Comptes d'épargne (Livret A)
+- `/api/orders/*` - Ordres d'achat/vente d'actions
+- `/api/messages/*` - Messagerie instantanée
+- `/api/notifications/*` - Notifications
+
+### Routes ADVISE (conseillers)
+- `/api/credits/*` - Attribution de crédits
+- `/api/messages/advisor/*` - Gestion des messages clients
+
+### Routes DIRECTOR (directeurs)
+- `/api/users/admin/*` - Gestion complète des utilisateurs (création, modification, suppression, bannissement)
+- `/api/stocks/*` - Gestion des actions (création, modification, suppression)
+- `/api/bank/*` - Fixation du taux d'épargne (avec notifications automatiques)
+
+## Utilisation
+
+### Authentification
+Pour accéder aux routes protégées, inclure le header :
+```
+Authorization: Bearer <token>
+x-user-id: <user_id>
+```
+
+Note : Actuellement, l'API utilise `x-user-id` en attendant l'implémentation complète de JWT.
+
+## Fonctionnalités selon le sujet
+
+### Client
+✅ Inscription avec confirmation par email (à implémenter l'envoi)
+✅ Création automatique d'un premier compte (à implémenter)
+✅ Gestion des comptes avec IBAN
+✅ Virements intrabancaires
+✅ Comptes d'épargne
+✅ Investissements (ordres d'achat/vente)
+
+### Directeur
+✅ Authentification sécurisée
+✅ Gestion complète des comptes clients
+✅ Fixation du taux d'épargne avec notifications automatiques
+✅ Gestion des actions (création, modification, suppression)
+✅ Impossible de modifier manuellement le cours d'une action
+
+### Conseiller
+✅ Authentification
+✅ Attribution de crédits
+✅ Messagerie instantanée avec gestion des conseillers attitrés
 
 ## Schéma de base de données
 
