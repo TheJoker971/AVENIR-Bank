@@ -6,7 +6,7 @@
   "main": "server.ts",
   "scripts": {
     "start": "ts-node -r tsconfig-paths/register server.ts",
-    "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register server.ts",
+    "dev": "ts-node-dev --transpile-only -r tsconfig-paths/register server.ts",
     "seed": "ts-node -r tsconfig-paths/register seed.ts",
     "test-api": "ts-node -r tsconfig-paths/register test-endpoints.ts"
   },

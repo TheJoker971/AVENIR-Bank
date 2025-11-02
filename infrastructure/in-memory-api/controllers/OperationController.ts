@@ -87,7 +87,6 @@ export class OperationController {
 
         // Récupérer le compte émetteur
         const { Iban } = await import('../../../domain/values/Iban');
-        const { CountryCode } = await import('../../../domain/values/CountryCode');
         const { BankCode } = await import('../../../domain/values/BankCode');
         const { BranchCode } = await import('../../../domain/values/BranchCode');
         const { AccountNumber } = await import('../../../domain/values/AccountNumber');
@@ -132,7 +131,7 @@ export class OperationController {
         const { UserRepositoryInMemory } = await import('../../repositories/in-memory/UserRepositoryInMemory');
         const userRepository = new UserRepositoryInMemory();
         const senderUser = await userRepository.findById(userId);
-        if (senderUser instanceof Error) {
+        if (senderUser instanceof Error || !senderUser) {
           return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
 

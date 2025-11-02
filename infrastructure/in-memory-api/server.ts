@@ -32,11 +32,18 @@ import { StockHoldingRepositoryInMemory } from '../repositories/in-memory/StockH
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware CORS - Accepte toutes les origines localhost
 app.use(cors({
-  origin: ['http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'],
+  origin: (origin, callback) => {
+    // Autoriser toutes les origines localhost (avec ou sans port spécifique)
+    if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Pour le développement, on accepte toutes les origines
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Role']
 }));
 app.use(express.json());
@@ -128,8 +135,31 @@ app.use('/api/bank', bankController.getRouter());
 app.use('/api/beneficiaries', beneficiaryController.getRouter());
 app.use('/api/portfolio', portfolioController.getRouter());
 
-// Démarrage du serveur
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur API In-Memory démarré sur le port ${PORT}`);
-  console.log(`📡 Endpoints disponibles sur http://localhost:${PORT}/api`);
-});
+// Démarrage du serveur avec seeding automatique
+async function startServer() {
+  try {
+    // Seed automatique des données au démarrage
+    console.log('🌱 Initialisation des données...');
+    await seed(
+      userRepository,
+      accountRepository,
+      savingsAccountRepository,
+      bankRepository,
+      stockRepository,
+      notificationRepository,
+      beneficiaryRepository
+    );
+    console.log('✅ Données initialisées avec succès !\n');
+  } catch (error: any) {
+    console.error('❌ Erreur lors du seeding automatique:', error);
+    // On continue quand même le démarrage du serveur
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Serveur API In-Memory démarré sur le port ${PORT}`);
+    console.log(`📡 Endpoints disponibles sur http://localhost:${PORT}/api`);
+  });
+}
+
+// Démarrer le serveur
+startServer();
