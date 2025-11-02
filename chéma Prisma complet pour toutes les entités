@@ -1,0 +1,25 @@
+  bank-repository[m
+  feature/api-layer[m
+  feature/error-classes[m
+  feature/frontend[m
+  feature/in-memory-api[m
+  feature/infrastructure-layer[m
+  feature/testing[m
+  feature/value-objects[m
+* [32mfix-operation-entity[m
+  main[m
+  message-entity[m
+  operation-entity[m
+  [31mremotes/origin/HEAD[m -> origin/main
+  [31mremotes/origin/bank-repository[m
+  [31mremotes/origin/create-bank-repository[m
+  [31mremotes/origin/feature/api-layer[m
+  [31mremotes/origin/feature/error-classes[m
+  [31mremotes/origin/feature/frontend[m
+  [31mremotes/origin/feature/in-memory-api[m
+  [31mremotes/origin/feature/infrastructure-layer[m
+  [31mremotes/origin/feature/testing[m
+  [31mremotes/origin/fix-operation-entity[m
+  [31mremotes/origin/main[m
+  [31mremotes/origin/message-entity[m
+  [31mremotes/origin/operation-entity[m

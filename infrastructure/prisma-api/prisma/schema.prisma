@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  firstName String
+  lastName  String
+  password  String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  accounts         Account[]
+  savingsAccounts  SavingsAccount[]
+  credits          Credit[]
+  orders           Order[]
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  notifications    Notification[]
+  
+  @@map("users")
+}
+
+model Account {
+  id          Int      @id @default(autoincrement())
+  accountNumber String
+  iban        String   @unique
+  balance     Decimal  @default(0)
+  ownerId     Int
+  accountType String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  owner      User         @relation(fields: [ownerId], references: [id])
+  operations Operation[]
+  orders     Order[]
+  
+  @@map("accounts")
+}
+
+model SavingsAccount {
+  id                      Int      @id @default(autoincrement())
+  iban                    String   @unique
+  balance                 Decimal  @default(0)
+  ownerId                 Int
+  interestRate            Decimal
+  lastInterestCalculation DateTime @default(now())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  owner User @relation(fields: [ownerId], references: [id])
+  
+  @@map("savings_accounts")
+}
+
+model Operation {
+  id                Int      @id @default(autoincrement())
+  senderFirstName   String
+  senderLastName    String
+  senderIban        String
+  receiverFirstName String
+  receiverLastName String
+  receiverIban     String
+  amount           Decimal
+  reason           String?
+  status           String   @default("PENDING")
+  accountId        Int?
+  createdAt        DateTime @default(now())
+  executedAt       DateTime?
+  
+  account Account? @relation(fields: [accountId], references: [id])
+  
+  @@map("operations")
+}
+
+model Stock {
+  id          Int      @id @default(autoincrement())
+  symbol      String   @unique
+  name        String
+  price       Decimal
+  quantity    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  orders Order[]
+  
+  @@map("stocks")
+}
+
+model Order {
+  id          Int      @id @default(autoincrement())
+  clientId    Int
+  stockId     Int
+  accountId   Int
+  orderType   String
+  quantity    Int
+  price       Decimal
+  status      String   @default("PENDING")
+  executedAt  DateTime?
+  createdAt   DateTime @default(now())
+  
+  client  User    @relation(fields: [clientId], references: [id])
+  stock   Stock   @relation(fields: [stockId], references: [id])
+  account Account @relation(fields: [accountId], references: [id])
+  
+  @@map("orders")
+}
+
+model Credit {
+  id                 Int      @id @default(autoincrement())
+  clientId           Int
+  principalAmount    Decimal
+  annualInterestRate Decimal
+  insuranceRate      Decimal
+  termMonths         Int
+  monthlyPayment     Decimal
+  remainingBalance   Decimal
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  client User @relation(fields: [clientId], references: [id])
+  
+  @@map("credits")
+}
+
+model Message {
+  id              Int       @id @default(autoincrement())
+  senderId        Int
+  receiverId      Int?
+  content         String
+  advisorId       Int?
+  isAssigned      Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User?  @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  @@map("messages")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id])
+  
+  @@map("notifications")
+}
+
+model Bank {
+  id                Int      @id @default(autoincrement())
+  name              String
+  baseInterestRate  Decimal
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("banks")
+}

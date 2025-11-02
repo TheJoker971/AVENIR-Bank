@@ -143,10 +143,6 @@ export class NotificationEntity {
     return this.message;
   }
 
-  public isRead(): boolean {
-    return this.isRead;
-  }
-
   public getCreatedAt(): Date {
     return this.createdAt;
   }
