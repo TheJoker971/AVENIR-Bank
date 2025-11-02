@@ -26,6 +26,17 @@ export class BankController {
     this.setupRoutes();
   }
 
+  private toBankDto(bank: any): any {
+    return {
+      name: bank?.name || 'AVENIR Bank',
+      bankCode: bank?.bankCode?.value || bank?.bankCode || '12345',
+      branchCode: bank?.branchCode?.value || bank?.branchCode || '67890',
+      interestRate: typeof bank?.interestRate === 'number' 
+        ? bank.interestRate 
+        : (bank?.interestRate?.value || 0.025), // 2.5% par défaut
+    };
+  }
+
   private setupRoutes(): void {
     // GET /api/bank - Récupère les informations de la banque
     this.router.get('/', async (req: Request, res: Response) => {
@@ -34,7 +45,7 @@ export class BankController {
         if (!bank) {
           return res.status(404).json({ error: 'Informations bancaires non trouvées' });
         }
-        res.json(bank);
+        res.json(this.toBankDto(bank));
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des informations bancaires' });
       }
@@ -58,7 +69,7 @@ export class BankController {
           return res.status(400).json({ error: updatedBank.message });
         }
 
-        res.json(updatedBank);
+        res.json(this.toBankDto(updatedBank));
       } catch (error: any) {
         res.status(500).json({ 
           error: 'Erreur lors de la mise à jour du taux d\'intérêt',

@@ -3,9 +3,10 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/presentation/hooks/useAuth';
 import { useStocks, useOrders } from '@/presentation/hooks/useStocks';
+import { useOrderBook } from '@/presentation/hooks/useOrderBook';
 import { useRouter } from 'next/navigation';
 import { formatAmount } from '@/shared/utils';
 import { formatDate } from '@/shared/utils/formatDate';
@@ -15,7 +16,10 @@ export default function StocksPage() {
   const { stocks, loading: stocksLoading } = useStocks();
   const { orders, createOrder, cancelOrder } = useOrders(user?.id || null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showOrderBookModal, setShowOrderBookModal] = useState(false);
   const [selectedStock, setSelectedStock] = useState<number | null>(null);
+  const [selectedStockSymbol, setSelectedStockSymbol] = useState<string | null>(null);
+  const { orderBook, loading: orderBookLoading, triggerMatch } = useOrderBook(selectedStockSymbol);
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
@@ -81,6 +85,15 @@ export default function StocksPage() {
                   <p className="text-sm text-gray-600">
                     Disponible: {stock.availableShares} / {stock.totalShares}
                   </p>
+                  <button
+                    onClick={() => {
+                      setSelectedStockSymbol(stock.symbol);
+                      setShowOrderBookModal(true);
+                    }}
+                    className="mt-2 text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    Voir le carnet d'ordres
+                  </button>
                 </div>
               </div>
             ))}
@@ -206,6 +219,91 @@ export default function StocksPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal du carnet d'ordres */}
+      {showOrderBookModal && selectedStockSymbol && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Carnet d'Ordres - {selectedStockSymbol}</h2>
+              <button
+                  onClick={() => {
+                    setShowOrderBookModal(false);
+                    setSelectedStockSymbol(null);
+                  }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-600">Prix d'équilibre</p>
+              <p className="text-2xl font-bold text-blue-700">{formatAmount(orderBook.equilibriumPrice || 0)}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              {/* Ordres d'achat */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-green-700">Ordres d'Achat (BUY)</h3>
+                {orderBookLoading ? (
+                  <p className="text-gray-500">Chargement...</p>
+                ) : orderBook.buyOrders && orderBook.buyOrders.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {orderBook.buyOrders.map((order: any, index: number) => (
+                      <div key={index} className="bg-green-50 border border-green-200 rounded p-3">
+                        <div className="flex justify-between">
+                          <span className="font-medium">{formatAmount(order.price)}</span>
+                          <span className="text-gray-600">{order.quantity} actions</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Aucun ordre d'achat</p>
+                )}
+              </div>
+
+              {/* Ordres de vente */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 text-red-700">Ordres de Vente (SELL)</h3>
+                {orderBookLoading ? (
+                  <p className="text-gray-500">Chargement...</p>
+                ) : orderBook.sellOrders && orderBook.sellOrders.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {orderBook.sellOrders.map((order: any, index: number) => (
+                      <div key={index} className="bg-red-50 border border-red-200 rounded p-3">
+                        <div className="flex justify-between">
+                          <span className="font-medium">{formatAmount(order.price)}</span>
+                          <span className="text-gray-600">{order.quantity} actions</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Aucun ordre de vente</p>
+                )}
+              </div>
+            </div>
+
+            {user?.role === 'DIRECTOR' && (
+              <div className="mt-6">
+                <button
+                  onClick={async () => {
+                    const result = await triggerMatch();
+                    if (result) {
+                      alert(`${result.message}\n${result.successCount} match(s) réussi(s), ${result.errorCount} erreur(s)`);
+                    }
+                  }}
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Déclencher le Matching Manuellement
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

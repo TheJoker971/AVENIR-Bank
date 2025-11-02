@@ -1,6 +1,8 @@
 import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
 import { AccountController } from './controllers/AccountController';
 import { UserController } from './controllers/UserController';
+import { AuthController } from './controllers/AuthController';
 import { OperationController } from './controllers/OperationController';
 import { SavingsAccountController } from './controllers/SavingsAccountController';
 import { StockController } from './controllers/StockController';
@@ -9,7 +11,10 @@ import { CreditController } from './controllers/CreditController';
 import { MessageController } from './controllers/MessageController';
 import { NotificationController } from './controllers/NotificationController';
 import { BankController } from './controllers/BankController';
+import { BeneficiaryController } from './controllers/BeneficiaryController';
+import { PortfolioController } from './controllers/PortfolioController';
 import { seed } from './seed';
+import { authMiddleware } from './middlewares/authMiddleware';
 
 // Initialisation des repositories in-memory
 import { AccountRepositoryInMemory, SavingsAccountRepositoryInMemory } from '../repositories/in-memory/AccountRepositoryInMemory';
@@ -21,12 +26,21 @@ import { CreditRepositoryInMemory } from '../repositories/in-memory/CreditReposi
 import { MessageRepositoryInMemory } from '../repositories/in-memory/MessageRepositoryInMemory';
 import { NotificationRepositoryInMemory } from '../repositories/in-memory/NotificationRepositoryInMemory';
 import { BankRepositoryInMemory } from '../repositories/in-memory/BankRepositoryInMemory';
+import { BeneficiaryRepositoryInMemory } from '../repositories/in-memory/BeneficiaryRepositoryInMemory';
+import { StockHoldingRepositoryInMemory } from '../repositories/in-memory/StockHoldingRepositoryInMemory';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+app.use(cors({
+  origin: ['http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Role']
+}));
 app.use(express.json());
+app.use(authMiddleware);
 
 // Initialisation des repositories
 const accountRepository = new AccountRepositoryInMemory();
@@ -39,18 +53,31 @@ const creditRepository = new CreditRepositoryInMemory();
 const messageRepository = new MessageRepositoryInMemory();
 const notificationRepository = new NotificationRepositoryInMemory();
 const bankRepository = new BankRepositoryInMemory();
+const beneficiaryRepository = new BeneficiaryRepositoryInMemory();
+const stockHoldingRepository = new StockHoldingRepositoryInMemory();
 
 // Initialisation des contrôleurs
 const accountController = new AccountController(accountRepository);
 const userController = new UserController(userRepository);
+const authController = new AuthController(userRepository, accountRepository);
 const operationController = new OperationController(operationRepository, accountRepository);
 const savingsAccountController = new SavingsAccountController(savingsAccountRepository);
 const stockController = new StockController(stockRepository);
-const orderController = new OrderController(orderRepository, stockRepository, accountRepository);
+const orderController = new OrderController(
+  orderRepository, 
+  stockRepository, 
+  accountRepository,
+  userRepository,
+  stockHoldingRepository,
+  operationRepository,
+  notificationRepository
+);
 const creditController = new CreditController(creditRepository);
 const messageController = new MessageController(messageRepository);
 const notificationController = new NotificationController(notificationRepository);
 const bankController = new BankController(bankRepository, savingsAccountRepository, notificationRepository, userRepository);
+const beneficiaryController = new BeneficiaryController(beneficiaryRepository);
+const portfolioController = new PortfolioController(stockHoldingRepository, stockRepository);
 
 // Routes
 app.get('/', (req: Request, res: Response) => {
@@ -58,6 +85,7 @@ app.get('/', (req: Request, res: Response) => {
     message: 'AVENIR Bank API - In-Memory',
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
       accounts: '/api/accounts',
       users: '/api/users',
       operations: '/api/operations',
@@ -67,7 +95,9 @@ app.get('/', (req: Request, res: Response) => {
       credits: '/api/credits',
       messages: '/api/messages',
       notifications: '/api/notifications',
-      bank: '/api/bank'
+      bank: '/api/bank',
+      beneficiaries: '/api/beneficiaries',
+      portfolio: '/api/portfolio'
     }
   });
 });
@@ -75,7 +105,7 @@ app.get('/', (req: Request, res: Response) => {
 // Route de seeding des données
 app.post('/api/seed', async (req: Request, res: Response) => {
   try {
-    await seed(userRepository, accountRepository, savingsAccountRepository, bankRepository, stockRepository, notificationRepository);
+    await seed(userRepository, accountRepository, savingsAccountRepository, bankRepository, stockRepository, notificationRepository, beneficiaryRepository);
     res.json({ message: 'Données créées avec succès !' });
   } catch (error: any) {
     console.error('Erreur lors du seeding:', error);
@@ -84,6 +114,7 @@ app.post('/api/seed', async (req: Request, res: Response) => {
 });
 
 // Routes API
+app.use('/api/auth', authController.getRouter());
 app.use('/api/accounts', accountController.getRouter());
 app.use('/api/users', userController.getRouter());
 app.use('/api/operations', operationController.getRouter());
@@ -94,6 +125,8 @@ app.use('/api/credits', creditController.getRouter());
 app.use('/api/messages', messageController.getRouter());
 app.use('/api/notifications', notificationController.getRouter());
 app.use('/api/bank', bankController.getRouter());
+app.use('/api/beneficiaries', beneficiaryController.getRouter());
+app.use('/api/portfolio', portfolioController.getRouter());
 
 // Démarrage du serveur
 app.listen(PORT, () => {

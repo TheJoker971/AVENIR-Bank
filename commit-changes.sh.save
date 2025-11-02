@@ -1,0 +1,4 @@
+ && sleep 1
+sleep 5 && curl -X POST http://localhost:3000/api/seed 2>&1
+curl -s http://localhost:3000
+

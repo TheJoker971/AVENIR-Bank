@@ -9,5 +9,6 @@ export interface UserDto {
   address: string;
   role: 'CLIENT' | 'ADVISE' | 'DIRECTOR';
   banned: boolean;
+  advisorId?: number | null; // ID du conseiller assigné (uniquement pour les clients)
 }
 

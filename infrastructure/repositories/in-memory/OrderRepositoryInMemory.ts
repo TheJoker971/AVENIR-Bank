@@ -35,7 +35,7 @@ export class OrderRepositoryInMemory implements OrderRepositoryInterface {
   async findByStatus(status: OrderStatus): Promise<OrderEntity[]> {
     const orders: OrderEntity[] = [];
     for (const order of this.orders.values()) {
-      if (order.status.getValue() === status.getValue()) {
+      if (order.status.value === status.value) {
         orders.push(order);
       }
     }

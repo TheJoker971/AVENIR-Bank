@@ -6,6 +6,7 @@ import { MessageDto } from '@/shared/dto';
 export interface SendMessageData {
   userId: number;
   content: string;
+  receiverId?: number; // Optionnel pour les clients (sera assigné automatiquement)
 }
 
 export interface MessageServiceInterface {

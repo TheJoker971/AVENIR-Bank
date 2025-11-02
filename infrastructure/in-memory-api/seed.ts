@@ -3,6 +3,7 @@ import { AccountRepositoryInMemory, SavingsAccountRepositoryInMemory } from '../
 import { BankRepositoryInMemory } from '../repositories/in-memory/BankRepositoryInMemory';
 import { StockRepositoryInMemory } from '../repositories/in-memory/StockRepositoryInMemory';
 import { NotificationRepositoryInMemory } from '../repositories/in-memory/NotificationRepositoryInMemory';
+import { BeneficiaryRepositoryInMemory } from '../repositories/in-memory/BeneficiaryRepositoryInMemory';
 
 // Import des entités
 import { UserEntity } from 'domain/entities/UserEntity';
@@ -31,7 +32,8 @@ async function seed(
   savingsAccountRepository: SavingsAccountRepositoryInMemory,
   bankRepository: BankRepositoryInMemory,
   stockRepository: StockRepositoryInMemory,
-  notificationRepository: NotificationRepositoryInMemory
+  notificationRepository: NotificationRepositoryInMemory,
+  beneficiaryRepository?: BeneficiaryRepositoryInMemory
 ) {
 
   try {

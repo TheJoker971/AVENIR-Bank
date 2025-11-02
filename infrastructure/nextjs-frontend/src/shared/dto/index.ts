@@ -10,4 +10,8 @@ export type { OrderDto } from './OrderDto';
 export type { CreditDto } from './CreditDto';
 export type { MessageDto } from './MessageDto';
 export type { NotificationDto } from './NotificationDto';
+export type { BeneficiaryDto } from './BeneficiaryDto';
+export type { PortfolioDto, StockHoldingDto } from './PortfolioDto';
+export type { SavingsAccountTotalValueDto } from './SavingsAccountTotalValueDto';
+export type { OrderBookDto, OrderBookEntryDto } from './OrderBookDto';
 

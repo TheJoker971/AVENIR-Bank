@@ -52,7 +52,8 @@ export class UserRepositoryInMemory implements UserRepositoryInterface {
           user.password.value, // UserEntity.create détectera automatiquement si c'est un hash
           user.address,
           user.role.value,
-          user.banned
+          user.banned,
+          user.advisorId
         )
       : user;
     

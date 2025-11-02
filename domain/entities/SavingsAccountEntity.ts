@@ -35,6 +35,39 @@ export class SavingsAccountEntity {
     return this.balance.multiply(dailyRate);
   }
 
+  /**
+   * Calcule les intérêts accumulés depuis le dernier calcul jusqu'à maintenant
+   * Utilise la date actuelle pour calculer le nombre de jours écoulés
+   */
+  public calculateAccumulatedInterest(): Amount {
+    const now = new Date();
+    const daysSinceLastCalculation = Math.floor(
+      (now.getTime() - this.lastInterestCalculation.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysSinceLastCalculation <= 0) {
+      const zero = Amount.create(0);
+      return zero instanceof Error ? new Amount(0) : zero;
+    }
+
+    const dailyRate = this.interestRate.value / 365;
+    
+    // Calcul des intérêts composés: Montant × (1 + taux_journalier)^jours - Montant
+    // Pour simplification, on utilise l'intérêt simple sur le solde actuel × nombre de jours
+    const interestPerDay = this.balance.multiply(dailyRate);
+    const totalInterest = interestPerDay.multiply(daysSinceLastCalculation);
+
+    return totalInterest;
+  }
+
+  /**
+   * Calcule la valeur totale estimée (solde actuel + intérêts accumulés non crédités)
+   */
+  public calculateTotalValue(): Amount {
+    const accumulatedInterest = this.calculateAccumulatedInterest();
+    return this.balance.add(accumulatedInterest);
+  }
+
   public addInterest(interest: Amount): SavingsAccountEntity {
     const newBalance = this.balance.add(interest);
     return new SavingsAccountEntity(

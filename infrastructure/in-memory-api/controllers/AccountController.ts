@@ -16,25 +16,55 @@ export class AccountController {
     this.setupRoutes();
   }
 
+  private toAccountDto(account: any): any {
+    return {
+      id: account.id || 0,
+      accountNumber: account.accountNumber?.value || account.accountNumber || '',
+      iban: account.iban?.value || account.iban || '',
+      balance: typeof account.balance === 'number' ? account.balance : (account.balance?.value || 0),
+      ownerId: account.ownerId || account.ownerID || 0,
+      createdAt: account.createdAt?.toISOString() || new Date().toISOString(),
+    };
+  }
+
+  private toAccountDtoArray(accounts: any[]): any[] {
+    return accounts.map(account => this.toAccountDto(account));
+  }
+
   private setupRoutes(): void {
     // GET /api/accounts - Liste tous les comptes de l'utilisateur authentifié
     this.router.get('/', requireAuth, filterUserAccounts, async (req: Request, res: Response) => {
       try {
         const userId = (req as any).userId;
         const accounts = await this.accountRepository.findByOwnerId(userId);
-        res.json(accounts);
+        res.json(this.toAccountDtoArray(accounts));
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des comptes' });
       }
     });
 
-    // GET /api/accounts/:id - Récupère un compte par ID (seulement si propriétaire)
-    this.router.get('/:id', requireAuth, requireAccountOwnership(this.accountRepository), async (req: Request, res: Response) => {
+    // GET /api/accounts/by-owner/:ownerId - Récupère les comptes d'un propriétaire spécifique
+    // IMPORTANT: Cette route doit être définie AVANT /:id pour éviter les conflits
+    this.router.get('/by-owner/:ownerId', requireAuth, async (req: Request, res: Response) => {
       try {
-        const account = (req as any).account;
-        res.json(account);
-      } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la récupération du compte' });
+        const userId = (req as any).userId;
+        const userRole = (req as any).userRole;
+        const ownerId = parseInt(req.params.ownerId);
+
+        if (isNaN(ownerId)) {
+          return res.status(400).json({ error: 'ID du propriétaire invalide' });
+        }
+
+        // Vérifier les permissions : un client ne peut voir que ses propres comptes
+        // Les conseillers et directeurs peuvent voir les comptes de n'importe quel client
+        if (userRole === 'CLIENT' && ownerId !== userId) {
+          return res.status(403).json({ error: 'Vous ne pouvez voir que vos propres comptes' });
+        }
+
+        const accounts = await this.accountRepository.findByOwnerId(ownerId);
+        res.json(this.toAccountDtoArray(accounts));
+      } catch (error: any) {
+        res.status(500).json({ error: 'Erreur lors de la récupération des comptes', details: error.message });
       }
     });
 
@@ -89,19 +119,41 @@ export class AccountController {
           return res.status(403).json({ error: 'Accès interdit' });
         }
         
-        res.json(account);
+        res.json(this.toAccountDto(account));
       } catch (error: any) {
         res.status(500).json({ error: 'Erreur lors de la récupération du compte', details: error.message });
+      }
+    });
+
+    // GET /api/accounts/:id - Récupère un compte par ID (seulement si propriétaire)
+    // IMPORTANT: Cette route doit être définie APRÈS les routes spécifiques (/by-owner, /by-iban)
+    this.router.get('/:id', requireAuth, requireAccountOwnership(this.accountRepository), async (req: Request, res: Response) => {
+      try {
+        const account = (req as any).account;
+        res.json(this.toAccountDto(account));
+      } catch (error) {
+        res.status(500).json({ error: 'Erreur lors de la récupération du compte' });
       }
     });
 
     // POST /api/accounts - Crée un nouveau compte (avec vérification de permissions)
     this.router.post('/', requireAuth, requireCanCreateAccount(), async (req: Request, res: Response) => {
       try {
-        const { ownerId, countryCode, bankCode, branchCode, ribKey } = req.body;
+        const userId = (req as any).userId;
+        const userRole = (req as any).userRole;
+        
+        // Utiliser l'ownerId fourni ou l'ID de l'utilisateur connecté (pour les clients)
+        const ownerId = req.body.ownerId || userId;
+        
+        // Valeurs par défaut pour la banque AVENIR
+        const countryCode = req.body.countryCode || 'FR';
+        const bankCode = req.body.bankCode || '12345';
+        const branchCode = req.body.branchCode || '67890';
+        const ribKey = req.body.ribKey || '12';
 
-        if (!ownerId || !countryCode || !bankCode || !branchCode || !ribKey) {
-          return res.status(400).json({ error: 'Paramètres manquants' });
+        // Si c'est un client, il ne peut créer un compte que pour lui-même
+        if (userRole === 'CLIENT' && ownerId !== userId) {
+          return res.status(403).json({ error: 'Vous ne pouvez créer un compte que pour vous-même' });
         }
 
         const account = await this.createAccountUseCase.execute(
@@ -116,9 +168,10 @@ export class AccountController {
           return res.status(400).json({ error: account.message });
         }
 
-        res.status(201).json(account);
-      } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la création du compte' });
+        res.status(201).json(this.toAccountDto(account));
+      } catch (error: any) {
+        console.error('Erreur lors de la création du compte:', error);
+        res.status(500).json({ error: 'Erreur lors de la création du compte', details: error.message });
       }
     });
 

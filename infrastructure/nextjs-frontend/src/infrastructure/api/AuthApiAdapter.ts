@@ -13,7 +13,7 @@ import { UserDto } from '@/shared/dto';
 export class AuthApiAdapter implements AuthServiceInterface {
   async login(credentials: LoginCredentials): Promise<UserDto | Error> {
     try {
-      const response = await apiClient.post<{ user: UserDto; token: string }>('/auth/login', credentials);
+      const response = await apiClient.post<{ user: UserDto; token: string }>('/api/auth/login', credentials);
       apiClient.setAuthToken(response.token);
       return response.user;
     } catch (error: any) {
@@ -23,7 +23,7 @@ export class AuthApiAdapter implements AuthServiceInterface {
 
   async register(data: RegisterData): Promise<UserDto | Error> {
     try {
-      const response = await apiClient.post<{ user: UserDto; token: string }>('/auth/register', data);
+      const response = await apiClient.post<{ user: UserDto; token: string }>('/api/auth/register', data);
       apiClient.setAuthToken(response.token);
       return response.user;
     } catch (error: any) {
@@ -33,7 +33,7 @@ export class AuthApiAdapter implements AuthServiceInterface {
 
   async logout(): Promise<void> {
     try {
-      await apiClient.post('/auth/logout');
+      await apiClient.post('/api/auth/logout');
     } finally {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token');
@@ -44,7 +44,7 @@ export class AuthApiAdapter implements AuthServiceInterface {
 
   async getCurrentUser(): Promise<UserDto | null> {
     try {
-      const user = await apiClient.get<UserDto>('/auth/me');
+      const user = await apiClient.get<UserDto>('/api/auth/me');
       return user;
     } catch {
       return null;

@@ -77,6 +77,21 @@ export const useAccounts = (userId: number | null) => {
     return result;
   };
 
+  const getAccountsByOwner = async (ownerId: number): Promise<AccountDto[] | null> => {
+    setLoading(true);
+    setError(null);
+    
+    const result = await accountService.getAccountsByOwner(ownerId);
+    if (result instanceof Error) {
+      setError(result.message);
+      setLoading(false);
+      return null;
+    }
+    
+    setLoading(false);
+    return result;
+  };
+
   return {
     accounts,
     savingsAccounts,
@@ -85,6 +100,7 @@ export const useAccounts = (userId: number | null) => {
     createAccount,
     deleteAccount,
     createSavingsAccount,
+    getAccountsByOwner,
     refresh: loadAccounts,
   };
 };

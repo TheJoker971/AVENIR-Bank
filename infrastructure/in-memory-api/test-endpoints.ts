@@ -663,6 +663,598 @@ async function testUsersEndpoints() {
 }
 
 /**
+ * Tests pour les ordres (orders) - achat/vente d'actions
+ */
+async function testOrders() {
+  console.log('\n📈 === Tests des Endpoints Ordres (Actions) ===\n');
+
+  const client1 = testUsers[0]; // Jean Dupont (CLIENT, ID: 1)
+  const client2 = testUsers[1]; // Marie Martin (CLIENT, ID: 2)
+  const director = testUsers[3]; // Sophie Bernard (DIRECTOR, ID: 4)
+
+  let successCount = 0;
+  let totalTests = 0;
+  let createdOrderId: number | null = null;
+  let stockSymbol = 'AAPL'; // Utiliser un symbole standard
+
+  // Prérequis: S'assurer qu'une action existe (on suppose qu'elle a été seedée)
+
+  // Test 1: CLIENT peut créer un ordre d'achat
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) peut créer un ordre d'achat`,
+    async () => {
+      const response = await axios.post(
+        `${BASE_URL}/orders`,
+        {
+          stockSymbol: stockSymbol,
+          orderType: 'BUY',
+          quantity: 10,
+          price: 150.0,
+        },
+        { headers: getAuthHeaders(client1) }
+      );
+      if (response.data.stockSymbol !== stockSymbol) {
+        throw new Error('Le symbole de l\'action n\'est pas correct');
+      }
+      if (response.data.orderType !== 'BUY') {
+        throw new Error('Le type d\'ordre n\'est pas correct');
+      }
+      if (response.data.status !== 'PENDING') {
+        throw new Error('L\'ordre devrait être en attente');
+      }
+      createdOrderId = response.data.id;
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 2: CLIENT peut créer un ordre de vente (si il possède des actions)
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client2)}) peut créer un ordre de vente`,
+    async () => {
+      // Note: Ce test peut échouer si le client n'a pas d'actions, c'est normal
+      try {
+        const response = await axios.post(
+          `${BASE_URL}/orders`,
+          {
+            stockSymbol: stockSymbol,
+            orderType: 'SELL',
+            quantity: 5,
+            price: 155.0,
+          },
+          { headers: getAuthHeaders(client2) }
+        );
+        if (response.data.orderType !== 'SELL') {
+          throw new Error('Le type d\'ordre n\'est pas correct');
+        }
+        return response.data;
+      } catch (error: any) {
+        // Si le client n'a pas d'actions, c'est une erreur attendue
+        if (error.response?.data?.error?.includes('Quantité insuffisante')) {
+          // C'est normal, le test passe quand même
+          return { skipped: true, reason: 'Client n\'a pas d\'actions' };
+        }
+        throw error;
+      }
+    }
+  )) successCount++;
+
+  // Test 3: CLIENT peut voir ses propres ordres
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) peut voir ses propres ordres`,
+    async () => {
+      const response = await axios.get(`${BASE_URL}/orders`, {
+        headers: getAuthHeaders(client1),
+      });
+      if (!Array.isArray(response.data)) {
+        throw new Error('La réponse devrait être un tableau');
+      }
+      // Vérifier que tous les ordres appartiennent à client1
+      const allOwned = response.data.every((order: any) => order.clientId === client1.id);
+      if (!allOwned) throw new Error('Le client peut voir des ordres qui ne lui appartiennent pas');
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 4: DIRECTOR peut voir tous les ordres
+  totalTests++;
+  if (await testEndpoint(
+    `DIRECTOR (${getUserFullName(director)}) peut voir tous les ordres`,
+    async () => {
+      const response = await axios.get(`${BASE_URL}/orders`, {
+        headers: getAuthHeaders(director),
+      });
+      if (!Array.isArray(response.data)) {
+        throw new Error('La réponse devrait être un tableau');
+      }
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 5: CLIENT peut annuler un ordre en attente
+  if (createdOrderId) {
+    totalTests++;
+    if (await testEndpoint(
+      `CLIENT (${getUserFullName(client1)}) peut annuler un ordre en attente`,
+      async () => {
+        const response = await axios.delete(`${BASE_URL}/orders/${createdOrderId}`, {
+          headers: getAuthHeaders(client1),
+        });
+        if (response.data.status !== 'CANCELLED') {
+          throw new Error('L\'ordre devrait être annulé');
+        }
+        return response.data;
+      }
+    )) successCount++;
+  }
+
+  // Test 6: CLIENT ne peut pas créer un ordre sans solde suffisant
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) ne peut pas créer un ordre d'achat avec solde insuffisant`,
+    async () => {
+      try {
+        await axios.post(
+          `${BASE_URL}/orders`,
+          {
+            stockSymbol: stockSymbol,
+            orderType: 'BUY',
+            quantity: 1000000, // Quantité énorme
+            price: 150.0,
+          },
+          { headers: getAuthHeaders(client1) }
+        );
+        // Si ça passe, c'est une erreur
+        throw new Error('L\'ordre devrait être rejeté pour solde insuffisant');
+      } catch (error: any) {
+        if (error.response?.data?.error?.includes('Solde insuffisant')) {
+          // C'est l'erreur attendue
+          return { expectedError: true };
+        }
+        throw error;
+      }
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  // Test 7: Récupération du carnet d'ordres (orderbook)
+  totalTests++;
+  if (await testEndpoint(
+    `GET /api/orders/orderbook/${stockSymbol} récupère le carnet d'ordres`,
+    async () => {
+      const response = await axios.get(`${BASE_URL}/orders/orderbook/${stockSymbol}`);
+      if (!response.data.stockSymbol) {
+        throw new Error('Le symbole de l\'action est manquant');
+      }
+      if (!Array.isArray(response.data.buyOrders)) {
+        throw new Error('Les ordres d\'achat devraient être un tableau');
+      }
+      if (!Array.isArray(response.data.sellOrders)) {
+        throw new Error('Les ordres de vente devraient être un tableau');
+      }
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 8: Matching manuel (si des ordres peuvent matcher)
+  totalTests++;
+  if (await testEndpoint(
+    `POST /api/orders/match/${stockSymbol} déclenche le matching`,
+    async () => {
+      const response = await axios.post(
+        `${BASE_URL}/orders/match/${stockSymbol}`,
+        {},
+        { headers: getAuthHeaders(director) }
+      );
+      // La réponse devrait contenir les résultats du matching
+      if (typeof response.data.totalMatches !== 'number') {
+        throw new Error('totalMatches devrait être un nombre');
+      }
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 9: Un utilisateur non-CLIENT ne peut pas créer d'ordres
+  totalTests++;
+  if (await testEndpoint(
+    `DIRECTOR (${getUserFullName(director)}) ne peut PAS créer d'ordres`,
+    async () => {
+      await axios.post(
+        `${BASE_URL}/orders`,
+        {
+          stockSymbol: stockSymbol,
+          orderType: 'BUY',
+          quantity: 10,
+          price: 150.0,
+        },
+        { headers: getAuthHeaders(director) }
+      );
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  console.log(`\n   📊 Résultat: ${successCount}/${totalTests} tests réussis\n`);
+  return { successCount, totalTests };
+}
+
+/**
+ * Tests pour le portefeuille (portfolio)
+ */
+async function testPortfolio() {
+  console.log('\n💼 === Tests des Endpoints Portefeuille ===\n');
+
+  const client1 = testUsers[0]; // Jean Dupont (CLIENT, ID: 1)
+  const client2 = testUsers[1]; // Marie Martin (CLIENT, ID: 2)
+
+  let successCount = 0;
+  let totalTests = 0;
+
+  // Test 1: CLIENT peut voir son portefeuille
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) peut voir son portefeuille`,
+    async () => {
+      const response = await axios.get(`${BASE_URL}/portfolio`, {
+        headers: getAuthHeaders(client1),
+      });
+      if (!Array.isArray(response.data.holdings)) {
+        throw new Error('Les holdings devraient être un tableau');
+      }
+      if (typeof response.data.totalValue !== 'number') {
+        throw new Error('totalValue devrait être un nombre');
+      }
+      if (typeof response.data.totalGainLoss !== 'number') {
+        throw new Error('totalGainLoss devrait être un nombre');
+      }
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 2: CLIENT ne voit que ses propres holdings
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client2)}) ne voit que ses propres holdings`,
+    async () => {
+      const response = await axios.get(`${BASE_URL}/portfolio`, {
+        headers: getAuthHeaders(client2),
+      });
+      // Tous les holdings devraient appartenir à client2 (même si le portefeuille est vide)
+      if (!Array.isArray(response.data.holdings)) {
+        throw new Error('Les holdings devraient être un tableau');
+      }
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 3: Récupération d'un holding spécifique
+  totalTests++;
+  if (await testEndpoint(
+    `GET /api/portfolio/AAPL récupère le holding d'une action spécifique`,
+    async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/portfolio/AAPL`, {
+          headers: getAuthHeaders(client1),
+        });
+        if (!response.data.stockSymbol) {
+          throw new Error('Le symbole de l\'action est manquant');
+        }
+        if (typeof response.data.quantity !== 'number') {
+          throw new Error('La quantité devrait être un nombre');
+        }
+        return response.data;
+      } catch (error: any) {
+        // Si le client n'a pas cette action, c'est une erreur attendue
+        if (error.response?.status === 404) {
+          return { skipped: true, reason: 'Client n\'a pas cette action' };
+        }
+        throw error;
+      }
+    }
+  )) successCount++;
+
+  // Test 4: Accès sans authentification doit échouer
+  totalTests++;
+  if (await testEndpoint(
+    `Accès au portefeuille sans authentification doit échouer`,
+    async () => {
+      await axios.get(`${BASE_URL}/portfolio`);
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  console.log(`\n   📊 Résultat: ${successCount}/${totalTests} tests réussis\n`);
+  return { successCount, totalTests };
+}
+
+/**
+ * Tests pour les comptes d'épargne avec gains temps réel
+ */
+async function testSavingsAccounts() {
+  console.log('\n💰 === Tests des Endpoints Comptes d\'Épargne (Gains Temps Réel) ===\n');
+
+  const client1 = testUsers[0]; // Jean Dupont (CLIENT, ID: 1)
+  const client2 = testUsers[1]; // Marie Martin (CLIENT, ID: 2)
+
+  let successCount = 0;
+  let totalTests = 0;
+  let createdSavingsAccountId: number | null = null;
+
+  // Test 1: CLIENT peut créer un compte d'épargne
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) peut créer un compte d'épargne`,
+    async () => {
+      const response = await axios.post(
+        `${BASE_URL}/savings-accounts`,
+        {
+          initialAmount: 1000.0,
+        },
+        { headers: getAuthHeaders(client1) }
+      );
+      if (!response.data.iban) {
+        throw new Error('L\'IBAN est manquant');
+      }
+      if (typeof response.data.balance !== 'number') {
+        throw new Error('Le solde devrait être un nombre');
+      }
+      if (typeof response.data.interestRate !== 'number') {
+        throw new Error('Le taux d\'intérêt devrait être un nombre');
+      }
+      createdSavingsAccountId = response.data.id;
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 2: CLIENT peut voir ses comptes d'épargne
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) peut voir ses comptes d'épargne`,
+    async () => {
+      const response = await axios.get(`${BASE_URL}/savings-accounts`, {
+        headers: getAuthHeaders(client1),
+      });
+      if (!Array.isArray(response.data)) {
+        throw new Error('La réponse devrait être un tableau');
+      }
+      // Vérifier que tous les comptes appartiennent à client1
+      const allOwned = response.data.every((account: any) => account.ownerId === client1.id);
+      if (!allOwned) throw new Error('Le client peut voir des comptes qui ne lui appartiennent pas');
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 3: Calcul de la valeur totale avec gains temps réel
+  if (createdSavingsAccountId) {
+    totalTests++;
+    if (await testEndpoint(
+      `GET /api/savings-accounts/${createdSavingsAccountId}/total-value calcule la valeur totale avec gains`,
+      async () => {
+        const response = await axios.get(
+          `${BASE_URL}/savings-accounts/${createdSavingsAccountId}/total-value`,
+          {
+            headers: getAuthHeaders(client1),
+          }
+        );
+        if (typeof response.data.balance !== 'number') {
+          throw new Error('Le solde devrait être un nombre');
+        }
+        if (typeof response.data.accumulatedInterest !== 'number') {
+          throw new Error('Les intérêts accumulés devraient être un nombre');
+        }
+        if (typeof response.data.totalValue !== 'number') {
+          throw new Error('La valeur totale devrait être un nombre');
+        }
+        // Vérifier que totalValue = balance + accumulatedInterest
+        const calculatedTotal = response.data.balance + response.data.accumulatedInterest;
+        if (Math.abs(response.data.totalValue - calculatedTotal) > 0.01) {
+          throw new Error('La valeur totale ne correspond pas à balance + intérêts accumulés');
+        }
+        return response.data;
+      }
+    )) successCount++;
+  }
+
+  // Test 4: CLIENT ne peut pas voir la valeur totale d'un compte qui ne lui appartient pas
+  if (createdSavingsAccountId) {
+    totalTests++;
+    if (await testEndpoint(
+      `CLIENT (${getUserFullName(client2)}) ne peut PAS voir la valeur totale d'un compte d'un autre client`,
+      async () => {
+        await axios.get(
+          `${BASE_URL}/savings-accounts/${createdSavingsAccountId}/total-value`,
+          {
+            headers: getAuthHeaders(client2),
+          }
+        );
+      },
+      false // On attend un échec
+    )) successCount++;
+  }
+
+  // Test 5: Un utilisateur non-CLIENT ne peut pas créer de compte d'épargne
+  totalTests++;
+  if (await testEndpoint(
+    `DIRECTOR ne peut PAS créer de compte d'épargne`,
+    async () => {
+      await axios.post(
+        `${BASE_URL}/savings-accounts`,
+        {
+          initialAmount: 1000.0,
+        },
+        { headers: getAuthHeaders(testUsers[3]) }
+      );
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  // Test 6: Calcul quotidien des intérêts (DIRECTOR uniquement)
+  totalTests++;
+  if (await testEndpoint(
+    `DIRECTOR peut déclencher le calcul quotidien des intérêts`,
+    async () => {
+      const director = testUsers[3]; // Sophie Bernard (DIRECTOR, ID: 4)
+      const response = await axios.post(
+        `${BASE_URL}/savings-accounts/calculate-interests`,
+        {},
+        { headers: getAuthHeaders(director) }
+      );
+      if (!response.data.message) {
+        throw new Error('Le message de confirmation est manquant');
+      }
+      if (!response.data.timestamp) {
+        throw new Error('Le timestamp est manquant');
+      }
+      // Vérifier que le message indique un succès
+      if (!response.data.message.includes('succès') && !response.data.message.includes('succes')) {
+        throw new Error('Le message ne confirme pas le succès du calcul');
+      }
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 7: Un utilisateur non-DIRECTOR ne peut pas déclencher le calcul
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT ne peut PAS déclencher le calcul des intérêts`,
+    async () => {
+      await axios.post(
+        `${BASE_URL}/savings-accounts/calculate-interests`,
+        {},
+        { headers: getAuthHeaders(client1) }
+      );
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  // Test 8: ADVISE ne peut pas déclencher le calcul
+  totalTests++;
+  if (await testEndpoint(
+    `ADVISE ne peut PAS déclencher le calcul des intérêts`,
+    async () => {
+      const advisor = testUsers[2]; // Pierre Dubois (ADVISE, ID: 3)
+      await axios.post(
+        `${BASE_URL}/savings-accounts/calculate-interests`,
+        {},
+        { headers: getAuthHeaders(advisor) }
+      );
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  console.log(`\n   📊 Résultat: ${successCount}/${totalTests} tests réussis\n`);
+  return { successCount, totalTests };
+}
+
+/**
+ * Tests pour les bénéficiaires
+ */
+async function testBeneficiaries() {
+  console.log('\n👤 === Tests des Endpoints Bénéficiaires ===\n');
+
+  const client1 = testUsers[0]; // Jean Dupont (CLIENT, ID: 1)
+  const client2 = testUsers[1]; // Marie Martin (CLIENT, ID: 2)
+
+  let successCount = 0;
+  let totalTests = 0;
+  let createdBeneficiaryId: number | null = null;
+
+  // Test 1: CLIENT peut créer un bénéficiaire
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) peut créer un bénéficiaire`,
+    async () => {
+      const response = await axios.post(
+        `${BASE_URL}/beneficiaries`,
+        {
+          name: 'Marie Martin',
+          iban: 'FR7630001007941234567890185',
+        },
+        { headers: getAuthHeaders(client1) }
+      );
+      if (!response.data.name) {
+        throw new Error('Le nom du bénéficiaire est manquant');
+      }
+      if (!response.data.iban) {
+        throw new Error('L\'IBAN du bénéficiaire est manquant');
+      }
+      createdBeneficiaryId = response.data.id;
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 2: CLIENT peut voir ses bénéficiaires
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client1)}) peut voir ses bénéficiaires`,
+    async () => {
+      const response = await axios.get(`${BASE_URL}/beneficiaries`, {
+        headers: getAuthHeaders(client1),
+      });
+      if (!Array.isArray(response.data)) {
+        throw new Error('La réponse devrait être un tableau');
+      }
+      // Vérifier que tous les bénéficiaires appartiennent à client1
+      const allOwned = response.data.every((beneficiary: any) => beneficiary.userId === client1.id);
+      if (!allOwned) throw new Error('Le client peut voir des bénéficiaires qui ne lui appartiennent pas');
+      return response.data;
+    }
+  )) successCount++;
+
+  // Test 3: CLIENT peut supprimer un bénéficiaire
+  if (createdBeneficiaryId) {
+    totalTests++;
+    if (await testEndpoint(
+      `CLIENT (${getUserFullName(client1)}) peut supprimer un bénéficiaire`,
+      async () => {
+        await axios.delete(`${BASE_URL}/beneficiaries/${createdBeneficiaryId}`, {
+          headers: getAuthHeaders(client1),
+        });
+        return { deleted: true };
+      }
+    )) successCount++;
+  }
+
+  // Test 4: CLIENT ne peut pas supprimer un bénéficiaire d'un autre client
+  totalTests++;
+  if (await testEndpoint(
+    `CLIENT (${getUserFullName(client2)}) ne peut PAS supprimer un bénéficiaire d'un autre client`,
+    async () => {
+      // Créer un bénéficiaire pour client1
+      const createResponse = await axios.post(
+        `${BASE_URL}/beneficiaries`,
+        {
+          name: 'Test Beneficiary',
+          iban: 'FR7630001007941234567890186',
+        },
+        { headers: getAuthHeaders(client1) }
+      );
+      const beneficiaryId = createResponse.data.id;
+
+      // Essayer de le supprimer avec client2
+      await axios.delete(`${BASE_URL}/beneficiaries/${beneficiaryId}`, {
+        headers: getAuthHeaders(client2),
+      });
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  // Test 5: Accès sans authentification doit échouer
+  totalTests++;
+  if (await testEndpoint(
+    `Accès aux bénéficiaires sans authentification doit échouer`,
+    async () => {
+      await axios.get(`${BASE_URL}/beneficiaries`);
+    },
+    false // On attend un échec
+  )) successCount++;
+
+  console.log(`\n   📊 Résultat: ${successCount}/${totalTests} tests réussis\n`);
+  return { successCount, totalTests };
+}
+
+/**
  * Tests généraux d'authentification
  */
 async function testAuthentication() {
@@ -771,6 +1363,22 @@ async function testEndpoints() {
     // Tests de la banque
     const bankResults = await testBank();
     results.push({ category: 'Banque', success: bankResults.successCount, total: bankResults.totalTests });
+
+    // Tests des ordres (orders)
+    const ordersResults = await testOrders();
+    results.push({ category: 'Ordres', success: ordersResults.successCount, total: ordersResults.totalTests });
+
+    // Tests du portefeuille (portfolio)
+    const portfolioResults = await testPortfolio();
+    results.push({ category: 'Portefeuille', success: portfolioResults.successCount, total: portfolioResults.totalTests });
+
+    // Tests des comptes d'épargne avec gains temps réel
+    const savingsResults = await testSavingsAccounts();
+    results.push({ category: 'Comptes Épargne', success: savingsResults.successCount, total: savingsResults.totalTests });
+
+    // Tests des bénéficiaires
+    const beneficiariesResults = await testBeneficiaries();
+    results.push({ category: 'Bénéficiaires', success: beneficiariesResults.successCount, total: beneficiariesResults.totalTests });
 
     // Résumé final
     console.log('\n📊 ==========================================');

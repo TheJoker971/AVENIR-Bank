@@ -8,8 +8,9 @@ import { Amount } from "domain/values/Amount";
 
 export class AccountEntity {
 
-    public static create(countryCode: CountryCode, bankCode: BankCode, branchCode: BranchCode, ribKey: string, balance: number = 0, ownerID: number): AccountEntity | Error {
-        const accountNumberOrError = AccountNumber.generateAccountNumber();
+    public static create(countryCode: CountryCode, bankCode: BankCode, branchCode: BranchCode, ribKey: string, balance: number = 0, ownerID: number, accountNumber?: AccountNumber): AccountEntity | Error {
+        // Si un numéro de compte est fourni, l'utiliser, sinon en générer un
+        const accountNumberOrError = accountNumber || AccountNumber.generateAccountNumber();
         if (accountNumberOrError instanceof Error) {
             return accountNumberOrError;
         }
@@ -59,6 +60,20 @@ export class AccountEntity {
             this.ownerId,
             this.createdAt
         );
+    }
+
+    /**
+     * Alias pour withdraw - débite le compte
+     */
+    public debit(amount: Amount): AccountEntity | Error {
+        return this.withdraw(amount);
+    }
+
+    /**
+     * Alias pour deposit - crédite le compte
+     */
+    public credit(amount: Amount): AccountEntity {
+        return this.deposit(amount);
     }
 
     public getBalance(): Amount {

@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { StockApiAdapter } from '@/infrastructure/api/StockApiAdapter';
 import { StockDto, OrderDto } from '@/shared/dto';
-import { StockServiceInterface } from '@/application/services/StockService';
+import { StockServiceInterface, CreateStockData } from '@/application/services/StockService';
 
 const stockService: StockServiceInterface = new StockApiAdapter();
 
@@ -30,7 +30,22 @@ export const useStocks = () => {
     setLoading(false);
   };
 
-  return { stocks, loading, error, refresh: loadStocks };
+  const createStock = async (data: CreateStockData) => {
+    setLoading(true);
+    setError(null);
+    
+    const result = await stockService.createStock(data);
+    if (result instanceof Error) {
+      setError(result.message);
+      setLoading(false);
+      return null;
+    }
+    
+    await loadStocks();
+    return result;
+  };
+
+  return { stocks, loading, error, refresh: loadStocks, createStock };
 };
 
 export const useOrders = (userId: number | null) => {
