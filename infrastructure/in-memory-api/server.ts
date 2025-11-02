@@ -50,7 +50,7 @@ const orderController = new OrderController(orderRepository, stockRepository, ac
 const creditController = new CreditController(creditRepository);
 const messageController = new MessageController(messageRepository);
 const notificationController = new NotificationController(notificationRepository);
-const bankController = new BankController(bankRepository);
+const bankController = new BankController(bankRepository, savingsAccountRepository, notificationRepository, userRepository);
 
 // Routes
 app.get('/', (req: Request, res: Response) => {

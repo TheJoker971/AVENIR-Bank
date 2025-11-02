@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { AccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
 import { CreateAccountUseCase } from '../../../application/use-cases/account/CreateAccountUseCase';
 import { UserRepositoryInMemory } from '../../repositories/in-memory/UserRepositoryInMemory';
+import { requireAuth } from '../middlewares/auth';
+import { requireAccountOwnership, filterUserAccounts, requireCanCreateAccount } from '../middlewares/accountAuth';
 
 export class AccountController {
   private router: Router;
@@ -15,37 +17,61 @@ export class AccountController {
   }
 
   private setupRoutes(): void {
-    // GET /api/accounts - Liste tous les comptes
-    this.router.get('/', async (req: Request, res: Response) => {
+    // GET /api/accounts - Liste tous les comptes de l'utilisateur authentifié
+    this.router.get('/', requireAuth, filterUserAccounts, async (req: Request, res: Response) => {
       try {
-        const accounts = await this.accountRepository.findAll();
+        const userId = (req as any).userId;
+        const accounts = await this.accountRepository.findByOwnerId(userId);
         res.json(accounts);
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des comptes' });
       }
     });
 
-    // GET /api/accounts/:id - Récupère un compte par ID
-    this.router.get('/:id', async (req: Request, res: Response) => {
+    // GET /api/accounts/:id - Récupère un compte par ID (seulement si propriétaire)
+    this.router.get('/:id', requireAuth, requireAccountOwnership(this.accountRepository), async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
-        const account = await this.accountRepository.findById(id);
-        
-        if (!account) {
-          return res.status(404).json({ error: 'Compte non trouvé' });
-        }
-        
+        const account = (req as any).account;
         res.json(account);
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération du compte' });
       }
     });
 
-    // GET /api/accounts/by-iban/:iban - Récupère un compte par IBAN
-    this.router.get('/by-iban/:iban', async (req: Request, res: Response) => {
+    // GET /api/accounts/by-iban/:iban - Récupère un compte par IBAN (seulement si propriétaire)
+    this.router.get('/by-iban/:iban', requireAuth, async (req: Request, res: Response) => {
       try {
         const { Iban } = await import('../../../domain/values/Iban');
-        const iban = Iban.create(req.params.iban);
+        const CountryCode = await import('../../../domain/values/CountryCode');
+        const BankCode = await import('../../../domain/values/BankCode');
+        const BranchCode = await import('../../../domain/values/BranchCode');
+        const AccountNumber = await import('../../../domain/values/AccountNumber');
+        const RibKey = await import('../../../domain/values/RibKey');
+        
+        // Parser l'IBAN pour extraire les composants (simplifié)
+        // Format IBAN: FR{2digits}{5digits}{5digits}{11digits}{2digits}
+        const ibanStr = req.params.iban;
+        if (ibanStr.length !== 27 || !ibanStr.startsWith('FR')) {
+          return res.status(400).json({ error: 'Format IBAN invalide' });
+        }
+        
+        const countryCode = ibanStr.substring(0, 2) as any;
+        const bankCodeStr = ibanStr.substring(4, 9);
+        const branchCodeStr = ibanStr.substring(9, 14);
+        const accountNumberStr = ibanStr.substring(14, 25);
+        const ribKeyStr = ibanStr.substring(25, 27);
+        
+        const bankCodeOrError = BankCode.BankCode.create(bankCodeStr);
+        const branchCodeOrError = BranchCode.BranchCode.create(branchCodeStr);
+        const accountNumberOrError = AccountNumber.AccountNumber.create(accountNumberStr);
+        const ribKeyOrError = RibKey.RibKey.create(ribKeyStr);
+        
+        if (bankCodeOrError instanceof Error) return res.status(400).json({ error: bankCodeOrError.message });
+        if (branchCodeOrError instanceof Error) return res.status(400).json({ error: branchCodeOrError.message });
+        if (accountNumberOrError instanceof Error) return res.status(400).json({ error: accountNumberOrError.message });
+        if (ribKeyOrError instanceof Error) return res.status(400).json({ error: ribKeyOrError.message });
+        
+        const iban = Iban.create(countryCode, bankCodeOrError, branchCodeOrError, accountNumberOrError, ribKeyOrError);
         
         if (iban instanceof Error) {
           return res.status(400).json({ error: iban.message });
@@ -56,26 +82,21 @@ export class AccountController {
         if (!account) {
           return res.status(404).json({ error: 'Compte non trouvé' });
         }
+
+        // Vérifier que l'utilisateur est le propriétaire
+        const userId = (req as any).userId;
+        if (account.ownerId !== userId) {
+          return res.status(403).json({ error: 'Accès interdit' });
+        }
         
         res.json(account);
-      } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la récupération du compte' });
+      } catch (error: any) {
+        res.status(500).json({ error: 'Erreur lors de la récupération du compte', details: error.message });
       }
     });
 
-    // GET /api/accounts/by-owner/:ownerId - Récupère les comptes d'un propriétaire
-    this.router.get('/by-owner/:ownerId', async (req: Request, res: Response) => {
-      try {
-        const ownerId = parseInt(req.params.ownerId);
-        const accounts = await this.accountRepository.findByOwnerId(ownerId);
-        res.json(accounts);
-      } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la récupération des comptes' });
-      }
-    });
-
-    // POST /api/accounts - Crée un nouveau compte
-    this.router.post('/', async (req: Request, res: Response) => {
+    // POST /api/accounts - Crée un nouveau compte (avec vérification de permissions)
+    this.router.post('/', requireAuth, requireCanCreateAccount(), async (req: Request, res: Response) => {
       try {
         const { ownerId, countryCode, bankCode, branchCode, ribKey } = req.body;
 
@@ -101,35 +122,11 @@ export class AccountController {
       }
     });
 
-    // PUT /api/accounts/:id - Met à jour un compte
-    this.router.put('/:id', async (req: Request, res: Response) => {
+    // DELETE /api/accounts/:id - Supprime un compte (seulement si propriétaire)
+    this.router.delete('/:id', requireAuth, requireAccountOwnership(this.accountRepository), async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
-        const account = await this.accountRepository.findById(id);
-        
-        if (!account) {
-          return res.status(404).json({ error: 'Compte non trouvé' });
-        }
-
-        // Pour l'instant, on ne permet que la mise à jour du solde
-        // L'entité AccountEntity étant immuable, il faudrait créer une nouvelle instance
-        res.status(501).json({ error: 'Mise à jour non implémentée (entité immuable)' });
-      } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la mise à jour du compte' });
-      }
-    });
-
-    // DELETE /api/accounts/:id - Supprime un compte
-    this.router.delete('/:id', async (req: Request, res: Response) => {
-      try {
-        const id = parseInt(req.params.id);
-        const exists = await this.accountRepository.exists(id);
-        
-        if (!exists) {
-          return res.status(404).json({ error: 'Compte non trouvé' });
-        }
-
-        await this.accountRepository.delete(id);
+        const accountId = parseInt(req.params.id);
+        await this.accountRepository.delete(accountId);
         res.status(204).send();
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la suppression du compte' });

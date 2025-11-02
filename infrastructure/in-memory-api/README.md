@@ -43,6 +43,65 @@ Pour tester les endpoints de l'API, exécutez :
 npm run test-api
 ```
 
+## Authentification
+
+L'API utilise une authentification basée sur des headers HTTP. Pour accéder aux endpoints protégés, vous devez inclure les headers suivants :
+
+- `X-User-Id` : L'identifiant de l'utilisateur authentifié (requis)
+- `X-User-Role` : Le rôle de l'utilisateur (CLIENT, ADVISE, DIRECTOR, ADMIN) (requis pour certains endpoints)
+
+### Exemple d'utilisation
+
+```bash
+# Lister les messages de l'utilisateur ID 1 (CLIENT)
+curl -H "X-User-Id: 1" -H "X-User-Role: CLIENT" http://localhost:3000/api/messages
+
+# Créer un message en tant qu'utilisateur ID 1
+curl -X POST \
+  -H "X-User-Id: 1" \
+  -H "X-User-Role: CLIENT" \
+  -H "Content-Type: application/json" \
+  -d '{"receiverId": 3, "message": "Bonjour conseiller !"}' \
+  http://localhost:3000/api/messages
+
+# Lister les comptes de l'utilisateur ID 1
+curl -H "X-User-Id: 1" http://localhost:3000/api/accounts
+
+# Modifier le taux d'intérêt en tant que directeur
+curl -X PUT \
+  -H "X-User-Id: 4" \
+  -H "X-User-Role: DIRECTOR" \
+  -H "Content-Type: application/json" \
+  -d '{"newRate": 3.5}' \
+  http://localhost:3000/api/bank/interest-rate
+```
+
+## Sécurité des endpoints
+
+### Messages (`/api/messages`)
+- ✅ Authentification requise pour tous les endpoints
+- ✅ Les utilisateurs ne voient que leurs propres messages (envoyés ou reçus)
+- ✅ Seuls CLIENT et ADVISE peuvent créer des messages
+- ✅ Seuls le destinataire et l'expéditeur peuvent lire/supprimer un message
+
+### Comptes (`/api/accounts`)
+- ✅ Authentification requise pour tous les endpoints
+- ✅ Les utilisateurs ne voient que leurs propres comptes
+- ✅ Un CLIENT ne peut créer des comptes que pour lui-même
+- ✅ Les ADVISE et DIRECTOR peuvent créer des comptes pour d'autres utilisateurs
+- ✅ Seul le propriétaire peut supprimer un compte
+
+### Notifications (`/api/notifications`)
+- ✅ Authentification requise pour tous les endpoints
+- ✅ Les utilisateurs ne voient que leurs propres notifications
+- ✅ Seul le destinataire peut lire une notification
+
+### Banque (`/api/bank`)
+- ✅ GET `/api/bank` : Public, accessible sans authentification
+- ✅ PUT `/api/bank/interest-rate` : Seul le DIRECTEUR peut modifier le taux d'intérêt
+- ✅ Modification automatique du taux de tous les livrets A
+- ✅ Notifications automatiques envoyées aux clients concernés
+
 ## Endpoints disponibles
 
 ### Comptes (`/api/accounts`)
@@ -74,10 +133,12 @@ npm run test-api
 - `GET /api/messages` - Messages
 - `GET /api/notifications` - Notifications
 - `GET /api/bank` - Informations bancaires
+- `PUT /api/bank/interest-rate` - Met à jour le taux d'intérêt (DIRECTOR uniquement)
 
 ## Architecture
 
 L'API utilise la Clean Architecture avec:
 - **Controllers** : Gèrent les requêtes HTTP et appellent les use cases
+- **Middlewares** : Gèrent l'authentification et l'autorisation
 - **Use Cases** : Contiennent la logique métier
 - **Repositories In-Memory** : Stockage temporaire en mémoire

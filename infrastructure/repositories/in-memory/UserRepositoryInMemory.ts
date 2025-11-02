@@ -42,13 +42,14 @@ export class UserRepositoryInMemory implements UserRepositoryInterface {
     }
     
     // Créer une nouvelle instance avec l'ID correct si nécessaire
+    // UserEntity.create détecte automatiquement si le password est déjà hashé (format SHA-256)
     const userToSave = userId !== user.id 
       ? UserEntity.create(
           userId,
           user.firstname,
           user.lastname,
           user.email.value,
-          user.password.value,
+          user.password.value, // UserEntity.create détectera automatiquement si c'est un hash
           user.address,
           user.role.value,
           user.banned

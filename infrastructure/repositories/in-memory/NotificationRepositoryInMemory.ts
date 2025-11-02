@@ -56,9 +56,7 @@ export class NotificationRepositoryInMemory implements NotificationRepositoryInt
   }
 
   async save(notification: NotificationEntity): Promise<void> {
-    const id = notification.id > 0 ? notification.id : this.nextId++;
-    // Comme l'entité est immuable, on doit créer une nouvelle instance avec l'ID
-    // Pour simplifier, on assume que l'entité a déjà un ID valide
+    // L'entité doit déjà avoir un ID valide
     this.notifications.set(notification.id, notification);
   }
 
