@@ -12,7 +12,7 @@ export class UserRepositoryInMemory implements UserRepositoryInterface {
 
   async findByEmail(email: string): Promise<UserEntity | null> {
     for (const user of this.users.values()) {
-      if (user.email.getValue() === email) {
+      if (user.email.value === email) {
         return user;
       }
     }
@@ -22,7 +22,7 @@ export class UserRepositoryInMemory implements UserRepositoryInterface {
   async findByRole(role: string): Promise<UserEntity[]> {
     const users: UserEntity[] = [];
     for (const user of this.users.values()) {
-      if (user.role.getValue() === role) {
+      if (user.role.value === role) {
         users.push(user);
       }
     }
@@ -47,10 +47,10 @@ export class UserRepositoryInMemory implements UserRepositoryInterface {
           userId,
           user.firstname,
           user.lastname,
-          user.email.getValue(),
-          user.password.getValue(),
+          user.email.value,
+          user.password.value,
           user.address,
-          user.role.getValue(),
+          user.role.value,
           user.banned
         )
       : user;

@@ -23,7 +23,7 @@ export class NotificationRepositoryInMemory implements NotificationRepositoryInt
   async findUnreadByRecipientId(recipientId: number): Promise<NotificationEntity[]> {
     const notifications: NotificationEntity[] = [];
     for (const notification of this.notifications.values()) {
-      if (notification.getRecipientId() === recipientId && !notification.isRead()) {
+      if (notification.getRecipientId() === recipientId && !notification.isRead) {
         notifications.push(notification);
       }
     }
@@ -92,7 +92,7 @@ export class NotificationRepositoryInMemory implements NotificationRepositoryInt
   async markAllAsRead(recipientId: number): Promise<void> {
     const notifications = await this.findByRecipientId(recipientId);
     for (const notification of notifications) {
-      if (!notification.isRead()) {
+      if (!notification.isRead) {
         const readNotification = notification.markAsRead();
         this.notifications.set(notification.id, readNotification);
       }

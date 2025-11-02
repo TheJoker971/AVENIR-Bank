@@ -21,6 +21,28 @@ npm start
 
 L'API sera accessible sur `http://localhost:3000`
 
+## Initialisation des données
+
+Pour peupler l'API avec des données de démonstration, vous pouvez utiliser l'endpoint de seeding :
+
+```bash
+curl -X POST http://localhost:3000/api/seed
+```
+
+Ou utiliser directement le script de seeding :
+
+```bash
+npm run seed
+```
+
+## Tests
+
+Pour tester les endpoints de l'API, exécutez :
+
+```bash
+npm run test-api
+```
+
 ## Endpoints disponibles
 
 ### Comptes (`/api/accounts`)

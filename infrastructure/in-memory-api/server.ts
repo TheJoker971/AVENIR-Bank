@@ -9,6 +9,7 @@ import { CreditController } from './controllers/CreditController';
 import { MessageController } from './controllers/MessageController';
 import { NotificationController } from './controllers/NotificationController';
 import { BankController } from './controllers/BankController';
+import { seed } from './seed';
 
 // Initialisation des repositories in-memory
 import { AccountRepositoryInMemory, SavingsAccountRepositoryInMemory } from '../repositories/in-memory/AccountRepositoryInMemory';
@@ -69,6 +70,17 @@ app.get('/', (req: Request, res: Response) => {
       bank: '/api/bank'
     }
   });
+});
+
+// Route de seeding des données
+app.post('/api/seed', async (req: Request, res: Response) => {
+  try {
+    await seed(userRepository, accountRepository, savingsAccountRepository, bankRepository, stockRepository, notificationRepository);
+    res.json({ message: 'Données créées avec succès !' });
+  } catch (error: any) {
+    console.error('Erreur lors du seeding:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Routes API
