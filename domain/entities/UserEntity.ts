@@ -38,8 +38,15 @@ export class UserEntity {
     public static create(id:number,firstname:string,lastname:string,email:string,password:string,address:string,role:string,banned:boolean) :UserEntity | Error{
         const emailOrError = Email.isEmail(email);
         if(emailOrError instanceof Error) return emailOrError;
-        const passwordOrError = Password.isPassword(password);
+        
+        // Si le password ressemble à un hash bcrypt (commence par $2a$, $2b$ ou $2y$), 
+        // on utilise createFromHash au lieu de isPassword
+        const isHash = Password.isBcryptHash(password);
+        const passwordOrError = isHash 
+            ? Password.createFromHash(password)
+            : Password.isPassword(password);
         if(passwordOrError instanceof Error) return passwordOrError;
+        
         const roleOrError = Role.isRole(role);
         if(roleOrError instanceof Error) return roleOrError;
         return new UserEntity(id,firstname,lastname,emailOrError,passwordOrError,address,roleOrError,banned);

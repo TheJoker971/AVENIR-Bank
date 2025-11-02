@@ -11,7 +11,9 @@
     "test-api": "ts-node -r tsconfig-paths/register test-endpoints.ts"
   },
   "dependencies": {
+    "@types/bcrypt": "^6.0.0",
     "axios": "^1.13.1",
+    "bcrypt": "^6.0.0",
     "express": "^4.18.2"
   },
   "devDependencies": {
