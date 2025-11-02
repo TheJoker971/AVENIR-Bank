@@ -4,6 +4,7 @@ import { NotificationRepositoryInterface } from "application/repositories/Notifi
 import { UserRepositoryInterface } from "application/repositories/UserRepositoryInterface";
 import { InterestRate } from "domain/values/InterestRate";
 import { BankEntity } from "domain/entities/BankEntity";
+import { NotificationEntity } from "domain/entities/NotificationEntity";
 
 export class UpdateInterestRateUseCase {
   constructor(
@@ -37,20 +38,16 @@ export class UpdateInterestRateUseCase {
     for (const account of savingsAccounts) {
       const user = await this.userRepository.findById(account.getOwnerId());
       if (user && !(user instanceof Error)) {
-        // Créer une notification
-        const notification = {
-          id: Date.now() + Math.random(), // ID unique temporaire
-          recipientId: account.getOwnerId(),
-          recipientEmail: user.email,
-          type: "INTEREST_RATE_CHANGE" as const,
-          title: "Modification du taux d'épargne",
-          message: `Le taux d'épargne de votre Livret A a été modifié de ${oldRate}% à ${newRate}%.`,
-          isRead: false,
-          createdAt: new Date()
-        };
-
-        // Note: Il faudrait créer une NotificationEntity ici
-        // await this.notificationRepository.save(notification);
+        // Créer une notification avec NotificationEntity
+        const notificationId = Date.now() * 1000 + Math.floor(Math.random() * 1000); // ID unique temporaire
+        const notification = NotificationEntity.createInterestRateChangeNotification(
+          notificationId,
+          account.getOwnerId(),
+          user.email,
+          oldRate,
+          newRate
+        );
+        await this.notificationRepository.save(notification);
       }
 
       // Mettre à jour le taux d'intérêt du compte d'épargne

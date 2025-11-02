@@ -1,11 +1,28 @@
 import { Router, Request, Response } from 'express';
 import { BankRepositoryInterface } from '../../../application/repositories/BankRepositoryInterface';
+import { requireAuth, requireRole } from '../middlewares/auth';
+import { UpdateInterestRateUseCase } from '../../../application/use-cases/admin/UpdateInterestRateUseCase';
+import { SavingsAccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
+import { NotificationRepositoryInterface } from '../../../application/repositories/NotificationRepositoryInterface';
+import { UserRepositoryInterface } from '../../../application/repositories/UserRepositoryInterface';
 
 export class BankController {
   private router: Router;
+  private updateInterestRateUseCase: UpdateInterestRateUseCase;
 
-  constructor(private bankRepository: BankRepositoryInterface) {
+  constructor(
+    private bankRepository: BankRepositoryInterface,
+    private savingsAccountRepository: SavingsAccountRepositoryInterface,
+    private notificationRepository: NotificationRepositoryInterface,
+    private userRepository: UserRepositoryInterface
+  ) {
     this.router = Router();
+    this.updateInterestRateUseCase = new UpdateInterestRateUseCase(
+      bankRepository,
+      savingsAccountRepository,
+      notificationRepository,
+      userRepository
+    );
     this.setupRoutes();
   }
 
@@ -20,6 +37,33 @@ export class BankController {
         res.json(bank);
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des informations bancaires' });
+      }
+    });
+
+    // PUT /api/bank/interest-rate - Met à jour le taux d'intérêt (DIRECTOR uniquement)
+    this.router.put('/interest-rate', requireAuth, requireRole('DIRECTOR'), async (req: Request, res: Response) => {
+      try {
+        const { newRate } = req.body;
+
+        if (typeof newRate !== 'number') {
+          return res.status(400).json({ 
+            error: 'Données invalides',
+            message: 'Le nouveau taux doit être un nombre'
+          });
+        }
+
+        const updatedBank = await this.updateInterestRateUseCase.execute(newRate);
+        
+        if (updatedBank instanceof Error) {
+          return res.status(400).json({ error: updatedBank.message });
+        }
+
+        res.json(updatedBank);
+      } catch (error: any) {
+        res.status(500).json({ 
+          error: 'Erreur lors de la mise à jour du taux d\'intérêt',
+          details: error.message 
+        });
       }
     });
   }

@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { NotificationRepositoryInterface } from '../../../application/repositories/NotificationRepositoryInterface';
+import { requireAuth } from '../middlewares/auth';
+import { requireNotificationAccess, filterUserNotifications } from '../middlewares/notificationAuth';
 
 export class NotificationController {
   private router: Router;
@@ -10,26 +12,21 @@ export class NotificationController {
   }
 
   private setupRoutes(): void {
-    // GET /api/notifications - Liste toutes les notifications
-    this.router.get('/', async (req: Request, res: Response) => {
+    // GET /api/notifications - Liste les notifications de l'utilisateur authentifié
+    this.router.get('/', requireAuth, filterUserNotifications, async (req: Request, res: Response) => {
       try {
-        const notifications = await this.notificationRepository.findAll();
+        const userId = (req as any).userId;
+        const notifications = await this.notificationRepository.findByRecipientId(userId);
         res.json(notifications);
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des notifications' });
       }
     });
 
-    // GET /api/notifications/:id - Récupère une notification par ID
-    this.router.get('/:id', async (req: Request, res: Response) => {
+    // GET /api/notifications/:id - Récupère une notification par ID (seulement si destinataire)
+    this.router.get('/:id', requireAuth, requireNotificationAccess(this.notificationRepository), async (req: Request, res: Response) => {
       try {
-        const id = parseInt(req.params.id);
-        const notification = await this.notificationRepository.findById(id);
-        
-        if (!notification) {
-          return res.status(404).json({ error: 'Notification non trouvée' });
-        }
-        
+        const notification = (req as any).notification;
         res.json(notification);
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération de la notification' });
