@@ -81,7 +81,7 @@ export default function TransferPage() {
   };
 
   if (authLoading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return <div className="p-8 text-center text-pearl">Chargement...</div>;
   }
 
   if (!isAuthenticated || !user || user.role !== 'CLIENT') {
@@ -93,35 +93,35 @@ export default function TransferPage() {
   const selectedBeneficiary = beneficiaries.find(b => b.id.toString() === toBeneficiaryId);
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Effectuer un virement</h1>
-        <Link href="/beneficiaries" className="text-blue-600 hover:text-blue-800 text-sm">
+    <div className="p-8 max-w-3xl mx-auto text-pearl">
+      <div className="mb-8 flex justify-between items-center">
+        <h1 className="font-display text-4xl font-bold text-gold">Effectuer un virement</h1>
+        <Link href="/beneficiaries" className="text-gold hover:text-yellow-400 text-sm transition-colors">
           Gérer les bénéficiaires →
         </Link>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+        <div className="mb-6 bg-red-900/20 border border-red-700 text-red-400 px-6 py-4 rounded-xl">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
+        <div className="mb-6 bg-green-900/20 border border-green-600 text-green-400 px-6 py-4 rounded-xl">
           ✅ Virement effectué avec succès !
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="luxury-card rounded-xl p-8 space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gold mb-3">
             Compte débiteur
           </label>
           <select
             value={fromAccountId}
             onChange={(e) => setFromAccountId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500"
+            className="input-premium w-full"
             required
           >
             <option value="">Sélectionner un compte</option>
@@ -132,18 +132,18 @@ export default function TransferPage() {
             ))}
           </select>
           {fromAccount && (
-            <p className="mt-1 text-sm text-gray-600">
-              Solde disponible: {formatAmount(fromAccount.balance)}
+            <p className="mt-2 text-sm text-pearl/60">
+              Solde disponible: <span className="font-semibold text-gold">{formatAmount(fromAccount.balance)}</span>
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gold mb-3">
             Type de virement
           </label>
-          <div className="flex space-x-4 mb-4">
-            <label className="flex items-center">
+          <div className="flex space-x-6">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="radio"
                 name="transferType"
@@ -153,11 +153,11 @@ export default function TransferPage() {
                   setTransferType('own');
                   setToBeneficiaryId('');
                 }}
-                className="mr-2"
+                className="mr-3 w-4 h-4 text-gold focus:ring-gold"
               />
-              <span>Vers mes comptes</span>
+              <span className="text-pearl">Vers mes comptes</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="radio"
                 name="transferType"
@@ -167,22 +167,22 @@ export default function TransferPage() {
                   setTransferType('beneficiary');
                   setToAccountId('');
                 }}
-                className="mr-2"
+                className="mr-3 w-4 h-4 text-gold focus:ring-gold"
               />
-              <span>Vers un bénéficiaire</span>
+              <span className="text-pearl">Vers un bénéficiaire</span>
             </label>
           </div>
         </div>
 
         {transferType === 'own' ? (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gold mb-3">
               Compte créditeur
             </label>
             <select
               value={toAccountId}
               onChange={(e) => setToAccountId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500"
+              className="input-premium w-full"
               required
             >
               <option value="">Sélectionner un compte</option>
@@ -195,15 +195,15 @@ export default function TransferPage() {
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gold mb-3">
               Bénéficiaire
             </label>
             {beneficiaries.length === 0 ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
-                <p className="text-sm text-yellow-800 mb-2">
+              <div className="glass border border-gold/30 rounded-lg p-5">
+                <p className="text-sm text-pearl/70 mb-3">
                   Vous n'avez pas encore de bénéficiaire.
                 </p>
-                <Link href="/beneficiaries" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                <Link href="/beneficiaries" className="text-gold hover:text-yellow-400 text-sm font-medium transition-colors">
                   Ajouter un bénéficiaire →
                 </Link>
               </div>
@@ -212,7 +212,7 @@ export default function TransferPage() {
                 <select
                   value={toBeneficiaryId}
                   onChange={(e) => setToBeneficiaryId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500"
+                  className="input-premium w-full"
                   required
                 >
                   <option value="">Sélectionner un bénéficiaire</option>
@@ -223,8 +223,8 @@ export default function TransferPage() {
                   ))}
                 </select>
                 {selectedBeneficiary && (
-                  <p className="mt-1 text-sm text-gray-600">
-                    Bénéficiaire: {selectedBeneficiary.name}
+                  <p className="mt-2 text-sm text-pearl/60">
+                    Bénéficiaire: <span className="font-semibold text-gold">{selectedBeneficiary.name}</span>
                   </p>
                 )}
               </>
@@ -233,7 +233,7 @@ export default function TransferPage() {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gold mb-3">
             Montant (€)
           </label>
           <input
@@ -243,21 +243,21 @@ export default function TransferPage() {
             max={fromAccount?.balance || 0}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500"
+            className="input-premium w-full"
             placeholder="0.00"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gold mb-3">
             Libellé / Description
           </label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500"
+            className="input-premium w-full"
             placeholder="Description du virement"
             required
           />
@@ -272,7 +272,7 @@ export default function TransferPage() {
             (transferType === 'own' && !toAccountId) ||
             (transferType === 'beneficiary' && (!toBeneficiaryId || beneficiaries.length === 0))
           }
-          className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-premium w-full py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Traitement...' : 'Effectuer le virement'}
         </button>
@@ -280,4 +280,3 @@ export default function TransferPage() {
     </div>
   );
 }
-

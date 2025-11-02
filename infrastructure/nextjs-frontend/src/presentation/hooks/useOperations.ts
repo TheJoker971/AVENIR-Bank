@@ -19,12 +19,13 @@ export const useOperations = () => {
     setError(null);
     
     const result = await accountService.transfer(data);
+    setLoading(false);
+    
     if (result instanceof Error) {
       setError(result.message);
       return false;
     }
     
-    setLoading(false);
     return true;
   };
 

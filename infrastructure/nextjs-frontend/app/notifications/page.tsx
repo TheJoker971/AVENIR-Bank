@@ -21,7 +21,7 @@ export default function NotificationsPage() {
   }, [authLoading, isAuthenticated, router]);
 
   if (authLoading || loading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return <div className="p-8 text-center text-pearl">Chargement...</div>;
   }
 
   if (!isAuthenticated || !user) {
@@ -29,12 +29,12 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex justify-between items-center">
+    <div className="p-8 text-pearl">
+      <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
+          <h1 className="font-display text-4xl font-bold text-gold">Notifications</h1>
           {unreadCount > 0 && (
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-pearl/60 mt-2">
               {unreadCount} notification{unreadCount > 1 ? 's' : ''} non {unreadCount > 1 ? 'lues' : 'lue'}
             </p>
           )}
@@ -42,7 +42,7 @@ export default function NotificationsPage() {
         {unreadCount > 0 && (
           <button
             onClick={markAllAsRead}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="btn-premium"
           >
             Tout marquer comme lu
           </button>
@@ -50,30 +50,30 @@ export default function NotificationsPage() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-600">Vous n'avez aucune notification</p>
+        <div className="text-center py-12 glass rounded-lg border border-gold/20">
+          <p className="text-pearl/60">Vous n'avez aucune notification</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Notifications non lues */}
           {unreadNotifications.length > 0 && (
             <div>
-              <h2 className="text-xl font-semibold mb-4 text-gray-900">Non lues</h2>
+              <h2 className="text-2xl font-semibold mb-4 text-gold">Non lues</h2>
               <div className="space-y-3">
                 {unreadNotifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className="bg-blue-50 border-l-4 border-blue-500 rounded-lg shadow p-4 hover:shadow-md transition"
+                    className="luxury-card border-l-4 border-gold rounded-xl p-5 hover:border-gold/60 transition-all"
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-1">{notification.title}</h3>
-                        <p className="text-gray-700">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-2">{formatDate(notification.createdAt)}</p>
+                        <h3 className="font-semibold text-pearl text-lg mb-2">{notification.title}</h3>
+                        <p className="text-pearl/70">{notification.message}</p>
+                        <p className="text-xs text-pearl/40 mt-3">{formatDate(notification.createdAt)}</p>
                       </div>
                       <button
                         onClick={() => markAsRead(notification.id)}
-                        className="ml-4 text-blue-600 hover:text-blue-800 text-sm"
+                        className="ml-4 text-gold hover:text-yellow-400 text-sm px-3 py-1 rounded-lg border border-gold/20 hover:border-gold/40 transition-all"
                       >
                         Marquer comme lu
                       </button>
@@ -87,17 +87,17 @@ export default function NotificationsPage() {
           {/* Notifications lues */}
           {readNotifications.length > 0 && (
             <div className={unreadNotifications.length > 0 ? 'mt-8' : ''}>
-              <h2 className="text-xl font-semibold mb-4 text-gray-700">Lues</h2>
+              <h2 className="text-2xl font-semibold mb-4 text-pearl/60">Lues</h2>
               <div className="space-y-3">
                 {readNotifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className="bg-gray-50 border-l-4 border-gray-300 rounded-lg shadow p-4 opacity-75"
+                    className="glass border-l-4 border-pearl/20 rounded-xl p-5 opacity-60"
                   >
                     <div>
-                      <h3 className="font-semibold text-gray-700 mb-1">{notification.title}</h3>
-                      <p className="text-gray-600">{notification.message}</p>
-                      <p className="text-xs text-gray-400 mt-2">{formatDate(notification.createdAt)}</p>
+                      <h3 className="font-semibold text-pearl/70 text-lg mb-2">{notification.title}</h3>
+                      <p className="text-pearl/50">{notification.message}</p>
+                      <p className="text-xs text-pearl/30 mt-3">{formatDate(notification.createdAt)}</p>
                     </div>
                   </div>
                 ))}

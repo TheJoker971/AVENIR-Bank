@@ -21,6 +21,19 @@ export class ApiClient {
       const token = this.getAuthToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        
+        // Décoder le token pour extraire userId et role
+        try {
+          const decoded = atob(token); // Décoder base64 côté navigateur
+          const [userId, role] = decoded.split(':');
+          
+          if (userId && role) {
+            config.headers['X-User-Id'] = userId;
+            config.headers['X-User-Role'] = role;
+          }
+        } catch (error) {
+          console.error('Erreur lors du décodage du token:', error);
+        }
       }
       return config;
     });

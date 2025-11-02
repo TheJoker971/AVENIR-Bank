@@ -47,7 +47,11 @@ export class SavingsAccountEntity {
 
     if (daysSinceLastCalculation <= 0) {
       const zero = Amount.create(0);
-      return zero instanceof Error ? new Amount(0) : zero;
+      // Amount.create(0) ne devrait jamais retourner une erreur, mais on gère le cas
+      if (zero instanceof Error) {
+        throw new Error("Impossible de créer un montant zéro");
+      }
+      return zero;
     }
 
     const dailyRate = this.interestRate.value / 365;

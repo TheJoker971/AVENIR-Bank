@@ -45,7 +45,7 @@ export default function BeneficiariesPage() {
   };
 
   if (authLoading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return <div className="p-8 text-center text-pearl">Chargement...</div>;
   }
 
   if (!isAuthenticated || !user || user.role !== 'CLIENT') {
@@ -53,38 +53,38 @@ export default function BeneficiariesPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Mes bénéficiaires</h1>
+    <div className="p-8 text-pearl">
+      <div className="mb-8 flex justify-between items-center">
+        <h1 className="font-display text-4xl font-bold text-gold">Mes bénéficiaires</h1>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          className="btn-premium"
         >
           + Ajouter un bénéficiaire
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+        <div className="mb-6 bg-red-900/20 border border-red-700 text-red-400 px-6 py-4 rounded-xl">
           {error}
         </div>
       )}
 
-      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
+      <div className="mb-8 glass border border-gold/20 rounded-xl p-6">
+        <p className="text-sm text-pearl/70">
           💡 Les bénéficiaires vous permettent d'effectuer des virements rapidement vers des comptes externes.
           Vous pouvez également effectuer des virements entre vos propres comptes sans les ajouter comme bénéficiaires.
         </p>
       </div>
 
       {loading && beneficiaries.length === 0 ? (
-        <div className="text-center py-8">Chargement...</div>
+        <div className="text-center py-8 text-pearl/60">Chargement...</div>
       ) : beneficiaries.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-600 mb-4">Vous n'avez pas encore de bénéficiaire</p>
+        <div className="text-center py-12 glass rounded-lg border border-gold/20">
+          <p className="text-pearl/60 mb-4">Vous n'avez pas encore de bénéficiaire</p>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+            className="btn-premium"
           >
             Ajouter mon premier bénéficiaire
           </button>
@@ -92,23 +92,23 @@ export default function BeneficiariesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {beneficiaries.map((beneficiary) => (
-            <div key={beneficiary.id} className="bg-white rounded-lg shadow p-6">
+            <div key={beneficiary.id} className="luxury-card rounded-xl p-6">
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold">{beneficiary.name}</h3>
+                <h3 className="text-xl font-semibold text-gold">{beneficiary.name}</h3>
                 <button
                   onClick={() => {
                     if (confirm('Êtes-vous sûr de vouloir supprimer ce bénéficiaire ?')) {
                       deleteBeneficiary(beneficiary.id);
                     }
                   }}
-                  className="text-red-600 hover:text-red-800 text-sm"
+                  className="text-red-400 hover:text-red-300 text-sm px-3 py-1 rounded-lg border border-red-500/30 hover:border-red-500/50 transition-all"
                 >
                   Supprimer
                 </button>
               </div>
               <div className="space-y-2">
-                <p className="text-sm text-gray-600">IBAN: {formatIban(beneficiary.iban)}</p>
-                <p className="text-xs text-gray-500">Ajouté le {formatDateShort(beneficiary.createdAt)}</p>
+                <p className="text-sm text-pearl/70">IBAN: {formatIban(beneficiary.iban)}</p>
+                <p className="text-xs text-pearl/40">Ajouté le {formatDateShort(beneficiary.createdAt)}</p>
               </div>
             </div>
           ))}
@@ -116,38 +116,38 @@ export default function BeneficiariesPage() {
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-2xl font-bold mb-4">Ajouter un bénéficiaire</h2>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass border border-gold/30 rounded-xl p-8 max-w-md w-full mx-4">
+            <h2 className="font-display text-3xl font-bold mb-6 text-gold text-center">Ajouter un bénéficiaire</h2>
             <form onSubmit={handleCreateBeneficiary}>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gold mb-2">
                     Nom du bénéficiaire
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     placeholder="Nom complet"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gold mb-2">
                     IBAN
                   </label>
                   <input
                     type="text"
                     value={formData.iban}
                     onChange={(e) => setFormData({...formData, iban: e.target.value.toUpperCase().replace(/\s/g, '')})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono"
+                    className="input-premium w-full font-mono"
                     placeholder="FR76 1234 5678 9012 3456 7890 123"
                     maxLength={27}
                     required
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-pearl/50">
                     Format: FR + 25 caractères (lettres majuscules et chiffres)
                   </p>
                 </div>
@@ -156,14 +156,14 @@ export default function BeneficiariesPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="btn-premium disabled:opacity-50"
                 >
                   {loading ? 'Ajout...' : 'Ajouter'}
                 </button>
@@ -175,4 +175,3 @@ export default function BeneficiariesPage() {
     </div>
   );
 }
-

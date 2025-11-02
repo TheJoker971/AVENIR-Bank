@@ -42,7 +42,7 @@ export default function OperationsPage() {
   };
 
   if (authLoading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return <div className="p-8 text-center text-pearl">Chargement...</div>;
   }
 
   if (!isAuthenticated || !user) {
@@ -52,17 +52,17 @@ export default function OperationsPage() {
   const selectedAccount = accounts.find(a => a.id.toString() === selectedAccountId);
 
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Historique des opérations</h1>
+    <div className="p-8 text-pearl">
+      <h1 className="font-display text-4xl font-bold text-gold mb-8">Historique des opérations</h1>
 
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="mb-8">
+        <label className="block text-sm font-medium text-gold mb-3">
           Sélectionner un compte
         </label>
         <select
           value={selectedAccountId}
           onChange={(e) => setSelectedAccountId(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500"
+          className="input-premium"
         >
           <option value="">Sélectionner un compte</option>
           {accounts.map((account) => (
@@ -74,63 +74,65 @@ export default function OperationsPage() {
       </div>
 
       {selectedAccount && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Compte sélectionné</p>
-          <p className="text-lg font-semibold">{selectedAccount.accountNumber}</p>
-          <p className="text-sm text-gray-600">IBAN: {formatIban(selectedAccount.iban)}</p>
-          <p className="text-2xl font-bold text-blue-600">Solde: {formatAmount(selectedAccount.balance)}</p>
+        <div className="mb-8 luxury-card rounded-xl p-6">
+          <p className="text-sm text-pearl/60 mb-1">Compte sélectionné</p>
+          <p className="text-2xl font-bold text-gold mb-2">{selectedAccount.accountNumber}</p>
+          <p className="text-sm text-pearl/60 mb-3">IBAN: {formatIban(selectedAccount.iban)}</p>
+          <p className="text-3xl font-bold text-pearl">Solde: {formatAmount(selectedAccount.balance)}</p>
         </div>
       )}
 
-      {loading && <div className="text-center py-8">Chargement des opérations...</div>}
+      {loading && <div className="text-center py-8 text-pearl/60">Chargement des opérations...</div>}
 
       {selectedAccountId && !loading && operations.length === 0 && (
-        <div className="text-center py-8 text-gray-600">Aucune opération trouvée</div>
+        <div className="text-center py-12 glass rounded-lg border border-gold/20">
+          <p className="text-pearl/60">Aucune opération trouvée</p>
+        </div>
       )}
 
       {operations.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="luxury-card rounded-xl overflow-hidden">
+          <table className="min-w-full divide-y divide-gold/20">
+            <thead className="glass">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Date</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Type</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Montant</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Description</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Statut</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gold/10">
               {operations.map((operation) => (
-                <tr key={operation.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <tr key={operation.id} className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-pearl/70">
                     {formatDate(operation.date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded text-xs ${
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       operation.data.receiverIban === selectedAccount?.iban
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
+                        ? 'bg-green-900/30 text-green-400 border border-green-500/30'
+                        : 'bg-red-900/30 text-red-400 border border-red-500/30'
                     }`}>
                       {operation.data.receiverIban === selectedAccount?.iban ? 'CRÉDIT' : 'DÉBIT'}
                     </span>
                   </td>
-                  <td className={`px-6 py-4 whitespace-nowrap font-medium ${
+                  <td className={`px-6 py-4 whitespace-nowrap font-bold text-lg ${
                     operation.data.receiverIban === selectedAccount?.iban
-                      ? 'text-green-600'
-                      : 'text-red-600'
+                      ? 'text-green-400'
+                      : 'text-red-400'
                   }`}>
                     {operation.data.receiverIban === selectedAccount?.iban ? '+' : '-'}
                     {formatAmount(operation.amount)}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
+                  <td className="px-6 py-4 text-sm text-pearl">
                     {operation.data.reason || 'Virement'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      operation.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                      operation.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      operation.status === 'COMPLETED' ? 'bg-green-900/30 text-green-400 border border-green-500/30' :
+                      operation.status === 'FAILED' ? 'bg-red-900/30 text-red-400 border border-red-500/30' :
+                      'bg-yellow-900/30 text-yellow-400 border border-yellow-500/30'
                     }`}>
                       {operation.status}
                     </span>
@@ -144,4 +146,3 @@ export default function OperationsPage() {
     </div>
   );
 }
-

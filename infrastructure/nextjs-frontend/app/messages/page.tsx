@@ -46,7 +46,7 @@ export default function MessagesPage() {
   };
 
   if (authLoading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return <div className="p-8 text-center text-pearl">Chargement...</div>;
   }
 
   if (!isAuthenticated || !user) {
@@ -57,27 +57,27 @@ export default function MessagesPage() {
   const displayMessages = isAdvisor && selectedUserId === null ? unassignedMessages : messages;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">
-        {isAdvisor ? 'Messagerie - Messages clients' : 'Messagerie'}
+    <div className="p-8 max-w-5xl mx-auto text-pearl">
+      <h1 className="font-display text-4xl font-bold text-gold mb-8">
+        {isAdvisor ? 'Messagerie - Messages clients' : 'Messagerie Privée'}
       </h1>
 
       {isAdvisor && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h2 className="font-semibold mb-2">Messages non assignés</h2>
+        <div className="mb-8 glass border border-gold/30 rounded-xl p-6">
+          <h2 className="font-semibold text-xl text-gold mb-4">📬 Messages non assignés</h2>
           {unassignedLoading ? (
-            <p className="text-sm text-gray-600">Chargement...</p>
+            <p className="text-sm text-pearl/60">Chargement...</p>
           ) : unassignedMessages.length === 0 ? (
-            <p className="text-sm text-gray-600">Aucun message en attente</p>
+            <p className="text-sm text-pearl/60">Aucun message en attente</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {unassignedMessages.map((msg) => (
-                <div key={msg.id} className="bg-white rounded p-3 border border-yellow-300">
-                  <p className="text-sm font-medium">De: Utilisateur #{msg.senderId}</p>
-                  <p className="text-sm text-gray-700">{msg.message}</p>
+                <div key={msg.id} className="luxury-card rounded-xl p-4 border border-gold/20">
+                  <p className="text-sm font-medium text-gold mb-1">De: Utilisateur #{msg.senderId}</p>
+                  <p className="text-sm text-pearl mb-3">{msg.message}</p>
                   <button
                     onClick={() => handleAssignMessage(msg.id)}
-                    className="mt-2 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                    className="btn-premium text-sm px-4 py-2"
                   >
                     Prendre en charge
                   </button>
@@ -88,16 +88,22 @@ export default function MessagesPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold">Conversation</h2>
+      <div className="luxury-card rounded-xl overflow-hidden">
+        <div className="glass p-6 border-b border-gold/20">
+          <h2 className="text-xl font-semibold text-gold">💬 Conversation</h2>
+          <p className="text-sm text-pearl/60 mt-1">
+            {isAdvisor ? 'Échangez avec vos clients' : 'Contactez votre conseiller privé'}
+          </p>
         </div>
 
-        <div className="p-6 h-96 overflow-y-auto bg-gray-50">
+        <div className="p-6 h-96 overflow-y-auto" style={{ background: 'rgba(10, 10, 10, 0.3)' }}>
           {loading ? (
-            <div className="text-center text-gray-600">Chargement...</div>
+            <div className="text-center text-pearl/60">Chargement...</div>
           ) : displayMessages.length === 0 ? (
-            <div className="text-center text-gray-600">Aucun message</div>
+            <div className="text-center py-12">
+              <p className="text-pearl/60 mb-2">Aucun message</p>
+              <p className="text-sm text-pearl/40">Démarrez la conversation !</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {displayMessages.map((message) => {
@@ -108,15 +114,15 @@ export default function MessagesPage() {
                     className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      className={`max-w-xs lg:max-w-md px-5 py-3 rounded-2xl ${
                         isFromMe
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white border border-gray-200'
+                          ? 'bg-gradient-to-r from-gold to-yellow-500 text-black'
+                          : 'glass border border-gold/20 text-pearl'
                       }`}
                     >
                       <p className="text-sm">{message.message}</p>
-                      <p className={`text-xs mt-1 ${
-                        isFromMe ? 'text-blue-100' : 'text-gray-500'
+                      <p className={`text-xs mt-2 ${
+                        isFromMe ? 'text-black/60' : 'text-pearl/50'
                       }`}>
                         {formatDate(message.date)}
                       </p>
@@ -129,20 +135,20 @@ export default function MessagesPage() {
           )}
         </div>
 
-        <form onSubmit={handleSendMessage} className="p-6 border-t border-gray-200">
+        <form onSubmit={handleSendMessage} className="p-6 border-t border-gold/20">
           <div className="flex space-x-4">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Tapez votre message..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500"
+              className="input-premium flex-1"
               disabled={loading}
             />
             <button
               type="submit"
               disabled={loading || !newMessage.trim()}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="btn-premium px-8 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Envoyer
             </button>
@@ -152,4 +158,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-

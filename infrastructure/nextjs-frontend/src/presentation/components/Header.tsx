@@ -1,5 +1,5 @@
 /**
- * Composant Header avec authentification - Presentation Layer
+ * Composant Header Premium - Presentation Layer
  */
 'use client';
 
@@ -14,65 +14,86 @@ export const Header: React.FC = () => {
   const { user, isAuthenticated, logout, loading } = useAuth();
   const { unreadCount } = useNotifications(user?.id || null);
 
+  // Ne pas afficher le header sur la page d'accueil non authentifiée
+  if (pathname === '/' && !isAuthenticated) {
+    return null;
+  }
+
   // Ne pas afficher le header sur les pages d'authentification
   if (pathname === '/login' || pathname === '/register') {
     return null;
   }
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="glass border-b border-gold/20 sticky top-0 z-50 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-blue-600">🏦 AVENIR Bank</span>
+        <div className="flex justify-between items-center h-20">
+          <div className="flex items-center space-x-12">
+            <Link href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-3 group">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold via-yellow-400 to-gold flex items-center justify-center shadow-lg shadow-gold/50 group-hover:shadow-xl group-hover:shadow-gold/70 transition-all duration-300">
+                <span className="text-2xl">👑</span>
+              </div>
+              <div>
+                <span className="font-display text-2xl font-bold text-gold tracking-wide">AVENIR</span>
+                <p className="text-xs text-pearl/60 tracking-widest">BANQUE PRIVÉE</p>
+              </div>
             </Link>
+            
             {isAuthenticated && (
-              <nav className="hidden md:flex md:space-x-8 md:ml-10">
+              <nav className="hidden lg:flex lg:space-x-8">
                 <Link
                   href="/dashboard"
-                  className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  className={`inline-flex items-center px-1 pt-1 text-sm font-medium tracking-wide transition-all duration-300 ${
                     pathname === '/dashboard'
-                      ? 'border-b-2 border-blue-500 text-gray-900'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300'
+                      ? 'text-gold border-b-2 border-gold'
+                      : 'text-pearl/70 hover:text-gold hover:border-b-2 hover:border-gold/50'
                   }`}
                 >
-                  Dashboard
+                  Tableau de Bord
                 </Link>
               </nav>
             )}
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-6">
             {loading ? (
-              <span className="text-sm text-gray-500">Chargement...</span>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-gold rounded-full animate-pulse"></div>
+                <span className="text-sm text-pearl/60">Chargement...</span>
+              </div>
             ) : isAuthenticated ? (
               <>
                 {user && (
                   <>
-                    <span className="hidden sm:block text-sm text-gray-700">
-                      {user.firstname} {user.lastname}
-                      <span className="ml-2 px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                        {user.role === 'DIRECTOR' ? 'Directeur' : 
-                         user.role === 'ADVISE' ? 'Conseiller' : 'Client'}
-                      </span>
-                    </span>
+                    <div className="hidden sm:flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-pearl">{user.firstname} {user.lastname}</p>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gold/10 text-gold border border-gold/20">
+                          {user.role === 'DIRECTOR' ? 'Directeur' : 
+                           user.role === 'ADVISE' ? 'Conseiller Privé' : 'Client Prestige'}
+                        </span>
+                      </div>
+                    </div>
+                    
                     <Link
                       href="/notifications"
-                      className="relative text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md hover:bg-gray-100 transition"
+                      className="relative group"
                     >
-                      🔔
+                      <div className="p-2 rounded-lg glass border border-gold/20 hover:border-gold/40 transition-all duration-300 hover:shadow-lg hover:shadow-gold/20">
+                        <span className="text-xl">🔔</span>
+                      </div>
                       {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-black bg-gradient-to-br from-gold to-yellow-400 rounded-full shadow-lg shadow-gold/50 animate-pulse">
                           {unreadCount > 9 ? '9+' : unreadCount}
                         </span>
                       )}
                     </Link>
                   </>
                 )}
+                
                 <button
                   onClick={logout}
-                  className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md hover:bg-gray-100 transition"
+                  className="px-4 py-2 text-sm text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
                 >
                   Déconnexion
                 </button>
@@ -81,15 +102,15 @@ export const Header: React.FC = () => {
               <>
                 <Link
                   href="/login"
-                  className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md hover:bg-gray-100 transition"
+                  className="px-6 py-2 text-sm text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
                 >
                   Connexion
                 </Link>
                 <Link
                   href="/register"
-                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                  className="px-6 py-2 text-sm font-semibold bg-gradient-to-r from-gold via-yellow-400 to-gold text-black rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-gold/50 hover:scale-105"
                 >
-                  Inscription
+                  Devenir Membre
                 </Link>
               </>
             )}

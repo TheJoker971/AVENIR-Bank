@@ -31,13 +31,17 @@ export class CreateSavingsAccountUseCase {
 
     // Récupérer le taux d'intérêt actuel de la banque
     const bank = await this.bankRepository.getCurrentBank();
-    if (bank instanceof Error) {
+    if (!bank) {
       return new Error("Impossible de récupérer les informations de la banque");
     }
 
-    // Créer les objets de valeur
-    const countryCodeOrError = CountryCode.create(countryCode);
-    if (countryCodeOrError instanceof Error) return countryCodeOrError;
+    // Valider et créer les objets de valeur
+    // CountryCode est un type, on valide qu'il est valide
+    const validCountryCodes: CountryCode[] = ["FR", "DE", "ES", "IT"];
+    if (!validCountryCodes.includes(countryCode as CountryCode)) {
+      return new Error("Code pays invalide");
+    }
+    const countryCodeValid = countryCode as CountryCode;
 
     const bankCodeOrError = BankCode.create(bankCode);
     if (bankCodeOrError instanceof Error) return bankCodeOrError;
@@ -50,7 +54,7 @@ export class CreateSavingsAccountUseCase {
 
     // Créer l'IBAN
     const ibanOrError = Iban.create(
-      countryCodeOrError,
+      countryCodeValid,
       bankCodeOrError,
       branchCodeOrError,
       // On va générer un numéro de compte temporaire

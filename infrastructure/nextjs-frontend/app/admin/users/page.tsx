@@ -161,7 +161,7 @@ export default function AdminUsersPage() {
   };
 
   if (authLoading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return <div className="p-8 text-center text-pearl">Chargement...</div>;
   }
 
   if (!isAuthenticated || user?.role !== 'DIRECTOR') {
@@ -169,69 +169,69 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Gestion des utilisateurs</h1>
+    <div className="p-8 text-pearl">
+      <div className="mb-8 flex justify-between items-center">
+        <h1 className="font-display text-4xl font-bold text-gold">Gestion des utilisateurs</h1>
         <div className="flex space-x-4">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+            className="btn-premium"
           >
             + Créer un utilisateur
           </button>
-          <Link href="/admin" className="text-blue-600 hover:text-blue-800">
+          <Link href="/admin" className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5">
             ← Retour
           </Link>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+        <div className="mb-6 bg-red-900/20 border border-red-700 text-red-400 px-6 py-4 rounded-xl">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="text-center py-8">Chargement...</div>
+        <div className="text-center py-8 text-pearl/60">Chargement...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="luxury-card rounded-xl overflow-hidden">
+          <table className="min-w-full divide-y divide-gold/20">
+            <thead className="glass">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Conseiller</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">ID</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Nom</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Email</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Rôle</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Conseiller</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Statut</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gold uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gold/10">
               {users.map((u) => (
-                <tr key={u.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{u.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <tr key={u.id} className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-pearl">{u.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-pearl">
                     {u.firstname} {u.lastname}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-pearl/70">{u.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      u.role === 'DIRECTOR' ? 'bg-purple-100 text-purple-800' :
-                      u.role === 'ADVISE' ? 'bg-blue-100 text-blue-800' :
-                      'bg-green-100 text-green-800'
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      u.role === 'DIRECTOR' ? 'bg-purple-900/30 text-purple-400 border border-purple-500/30' :
+                      u.role === 'ADVISE' ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30' :
+                      'bg-green-900/30 text-green-400 border border-green-500/30'
                     }`}>
                       {getRoleName(u.role)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-pearl/70">
                     {u.role === 'CLIENT' ? (
                       <div className="flex items-center space-x-2">
                         <span>{getAdvisorName(u.advisorId)}</span>
                         {u.advisorId && (
                           <button
                             onClick={() => handleRemoveAdvisor(u.id)}
-                            className="text-red-600 hover:text-red-800 text-xs"
+                            className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded border border-red-500/30 hover:border-red-500/50 transition-all"
                             title="Retirer le conseiller"
                           >
                             ✕
@@ -242,42 +242,42 @@ export default function AdminUsersPage() {
                             setSelectedClient(u);
                             setShowAssignModal(true);
                           }}
-                          className="text-blue-600 hover:text-blue-800 text-xs"
+                          className="text-gold hover:text-yellow-400 text-xs px-2 py-1 rounded border border-gold/30 hover:border-gold/50 transition-all"
                           title="Assigner/Changer de conseiller"
                         >
                           {u.advisorId ? 'Modifier' : 'Assigner'}
                         </button>
                       </div>
                     ) : (
-                      <span className="text-gray-400">-</span>
+                      <span className="text-pearl/30">-</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {u.banned ? (
-                      <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Banni</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-900/30 text-red-400 border border-red-500/30">Banni</span>
                     ) : (
-                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">Actif</span>
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-900/30 text-green-400 border border-green-500/30">Actif</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     {u.banned ? (
                       <button
                         onClick={() => handleUnban(u.id)}
-                        className="text-green-600 hover:text-green-800"
+                        className="text-green-400 hover:text-green-300 px-3 py-1 rounded border border-green-500/30 hover:border-green-500/50 transition-all"
                       >
                         Débannir
                       </button>
                     ) : (
                       <button
                         onClick={() => handleBan(u.id)}
-                        className="text-yellow-600 hover:text-yellow-800"
+                        className="text-yellow-400 hover:text-yellow-300 px-3 py-1 rounded border border-yellow-500/30 hover:border-yellow-500/50 transition-all"
                       >
                         Bannir
                       </button>
                     )}
                     <button
                       onClick={() => handleDelete(u.id)}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-red-400 hover:text-red-300 px-3 py-1 rounded border border-red-500/30 hover:border-red-500/50 transition-all"
                     >
                       Supprimer
                     </button>
@@ -289,81 +289,70 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* Modal création utilisateur */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-2xl font-bold mb-4">Créer un utilisateur</h2>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass border border-gold/30 rounded-xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="font-display text-3xl font-bold mb-6 text-gold text-center">Créer un utilisateur</h2>
             <form onSubmit={handleCreateUser}>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Prénom
-                  </label>
+                  <label className="block text-sm font-medium text-gold mb-2">Prénom</label>
                   <input
                     type="text"
                     value={formData.firstname}
                     onChange={(e) => setFormData({...formData, firstname: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nom
-                  </label>
+                  <label className="block text-sm font-medium text-gold mb-2">Nom</label>
                   <input
                     type="text"
                     value={formData.lastname}
                     onChange={(e) => setFormData({...formData, lastname: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-gold mb-2">Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mot de passe
-                  </label>
+                  <label className="block text-sm font-medium text-gold mb-2">Mot de passe</label>
                   <input
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                     minLength={6}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Adresse
-                  </label>
+                  <label className="block text-sm font-medium text-gold mb-2">Adresse</label>
                   <input
                     type="text"
                     value={formData.address}
                     onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rôle
-                  </label>
+                  <label className="block text-sm font-medium text-gold mb-2">Rôle</label>
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({...formData, role: e.target.value as any})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   >
                     <option value="CLIENT">Client</option>
@@ -376,14 +365,14 @@ export default function AdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="btn-premium disabled:opacity-50"
                 >
                   {loading ? 'Création...' : 'Créer'}
                 </button>
@@ -393,20 +382,24 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* Modal assignation conseiller */}
       {showAssignModal && selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-2xl font-bold mb-4">
-              Assigner un conseiller à {selectedClient.firstname} {selectedClient.lastname}
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass border border-gold/30 rounded-xl p-8 max-w-md w-full">
+            <h2 className="font-display text-3xl font-bold mb-4 text-gold text-center">
+              Assigner un conseiller
             </h2>
-            <div className="space-y-4">
+            <p className="text-center text-pearl/70 mb-6">
+              à {selectedClient.firstname} {selectedClient.lastname}
+            </p>
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gold mb-2">
                   Sélectionner un conseiller
                 </label>
                 <select
                   id="advisorSelect"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="input-premium w-full"
                   defaultValue={selectedClient.advisorId?.toString() || ''}
                 >
                   <option value="">Aucun conseiller</option>
@@ -425,7 +418,7 @@ export default function AdminUsersPage() {
                   setShowAssignModal(false);
                   setSelectedClient(null);
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
               >
                 Annuler
               </button>
@@ -442,7 +435,7 @@ export default function AdminUsersPage() {
                     setSelectedClient(null);
                   }
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="btn-premium"
               >
                 {selectedClient.advisorId ? 'Modifier' : 'Assigner'}
               </button>
@@ -453,4 +446,3 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-

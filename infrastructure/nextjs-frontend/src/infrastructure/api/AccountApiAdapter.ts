@@ -83,15 +83,17 @@ export class AccountApiAdapter implements AccountServiceInterface {
       }
 
       // Préparer les données pour l'API
+      // Le backend attend senderFirstName, senderLastName, etc.
       const transferPayload: any = {
         senderIban: fromAccount.iban,
         receiverIban: data.receiverIban,
         amount: data.amount,
-        reason: data.description || '',
+        reason: data.description || 'Virement',
         instantTransfer: true,
       };
 
-      // Ajouter le nom du bénéficiaire si fourni (pour les virements externes)
+      // Le backend récupérera automatiquement le nom de l'émetteur depuis l'utilisateur authentifié
+      // Mais on peut ajouter le nom du bénéficiaire si fourni (pour les virements externes)
       if (data.receiverName) {
         const nameParts = data.receiverName.split(' ');
         transferPayload.receiverFirstName = nameParts[0] || data.receiverName;
@@ -99,7 +101,9 @@ export class AccountApiAdapter implements AccountServiceInterface {
       }
 
       await apiClient.post('/api/operations/transfer', transferPayload);
+      return;
     } catch (error: any) {
+      console.error('Erreur de virement:', error.response?.data);
       return new Error(error.response?.data?.error || error.response?.data?.message || 'Erreur lors du virement');
     }
   }

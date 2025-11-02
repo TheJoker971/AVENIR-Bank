@@ -1,5 +1,5 @@
 /**
- * Page d'inscription
+ * Page d'inscription Premium
  */
 'use client';
 
@@ -36,73 +36,82 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Créer un compte
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute w-96 h-96 bg-gold/5 rounded-full blur-3xl -top-48 -left-48"></div>
+        <div className="absolute w-96 h-96 bg-gold/5 rounded-full blur-3xl -bottom-48 -right-48"></div>
+      </div>
+
+      <div className="max-w-md w-full relative z-10">
+        <div className="text-center mb-8">
+          <div className="inline-block p-4 rounded-full bg-gradient-to-br from-gold via-yellow-400 to-gold shadow-2xl shadow-gold/30 mb-6">
+            <span className="text-5xl">💎</span>
+          </div>
+          <h2 className="font-display text-4xl font-bold text-gold mb-2">
+            Devenir Client Prestige
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Ou{' '}
-            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              connectez-vous à votre compte existant
-            </Link>
-          </p>
+          <p className="text-pearl/60">Rejoignez l'excellence bancaire</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-800">{error}</div>
+
+        <div className="luxury-card p-8 rounded-2xl">
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {error && (
+              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+                <div className="text-sm text-red-400">{error}</div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="firstname" className="block text-sm font-medium text-pearl/80 mb-2">
+                  Prénom
+                </label>
+                <input
+                  id="firstname"
+                  name="firstname"
+                  type="text"
+                  required
+                  className="input-premium w-full"
+                  placeholder="Jean"
+                  value={formData.firstname}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label htmlFor="lastname" className="block text-sm font-medium text-pearl/80 mb-2">
+                  Nom
+                </label>
+                <input
+                  id="lastname"
+                  name="lastname"
+                  type="text"
+                  required
+                  className="input-premium w-full"
+                  placeholder="Dupont"
+                  value={formData.lastname}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
-          )}
-          <div className="rounded-md shadow-sm space-y-4">
+
             <div>
-              <label htmlFor="firstname" className="block text-sm font-medium text-gray-700">
-                Prénom
-              </label>
-              <input
-                id="firstname"
-                name="firstname"
-                type="text"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Prénom"
-                value={formData.firstname}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <label htmlFor="lastname" className="block text-sm font-medium text-gray-700">
-                Nom
-              </label>
-              <input
-                id="lastname"
-                name="lastname"
-                type="text"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Nom"
-                value={formData.lastname}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
+              <label htmlFor="email" className="block text-sm font-medium text-pearl/80 mb-2">
+                Adresse email
               </label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Adresse email"
+                className="input-premium w-full"
+                placeholder="votre@email.com"
                 value={formData.email}
                 onChange={handleChange}
               />
             </div>
+
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-pearl/80 mb-2">
                 Mot de passe
               </label>
               <input
@@ -110,41 +119,54 @@ export default function RegisterPage() {
                 name="password"
                 type="password"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Mot de passe"
+                className="input-premium w-full"
+                placeholder="••••••••"
                 value={formData.password}
                 onChange={handleChange}
               />
             </div>
+
             <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                Adresse
+              <label htmlFor="address" className="block text-sm font-medium text-pearl/80 mb-2">
+                Adresse complète
               </label>
               <input
                 id="address"
                 name="address"
                 type="text"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Adresse complète"
+                className="input-premium w-full"
+                placeholder="123 Avenue des Champs-Élysées, Paris"
                 value={formData.address}
                 onChange={handleChange}
               />
             </div>
-          </div>
 
-          <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="btn-premium w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
-              {loading ? 'Création du compte...' : 'Créer mon compte'}
+              {loading ? 'Création en cours...' : 'Créer mon compte Prestige'}
             </button>
-          </div>
-        </form>
+
+            <div className="text-center pt-4">
+              <p className="text-sm text-pearl/60">
+                Déjà client ?{' '}
+                <Link href="/login" className="text-gold hover:text-yellow-400 font-medium transition-colors">
+                  Se connecter
+                </Link>
+              </p>
+            </div>
+          </form>
+        </div>
+
+        <div className="mt-8 text-center">
+          <Link href="/" className="text-sm text-pearl/40 hover:text-gold transition-colors">
+            ← Retour à l'accueil
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
-

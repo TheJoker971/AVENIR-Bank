@@ -70,7 +70,7 @@ export default function CreditsPage() {
   };
 
   if (authLoading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return <div className="p-8 text-center text-pearl">Chargement...</div>;
   }
 
   if (!isAuthenticated || user?.role !== 'ADVISE') {
@@ -78,62 +78,64 @@ export default function CreditsPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Gestion des crédits</h1>
+    <div className="p-8 text-pearl">
+      <div className="mb-8 flex justify-between items-center">
+        <h1 className="font-display text-4xl font-bold text-gold">Gestion des crédits</h1>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+          className="btn-premium"
         >
           + Attribuer un crédit
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+        <div className="mb-6 bg-red-900/20 border border-red-700 text-red-400 px-6 py-4 rounded-xl">
           {error}
         </div>
       )}
 
       {loading && credits.length === 0 ? (
-        <div className="text-center py-8">Chargement...</div>
+        <div className="text-center py-8 text-pearl/60">Chargement...</div>
       ) : credits.length === 0 ? (
-        <div className="text-center py-8 text-gray-600">Aucun crédit attribué</div>
+        <div className="text-center py-12 glass rounded-lg border border-gold/20">
+          <p className="text-pearl/60">Aucun crédit attribué</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {credits.map((credit) => (
-            <div key={credit.id} className="bg-white rounded-lg shadow p-6">
+            <div key={credit.id} className="luxury-card rounded-xl p-6">
               <div className="mb-4">
-                <h3 className="text-lg font-semibold">Crédit #{credit.id}</h3>
-                <p className="text-sm text-gray-600">Client ID: {credit.clientId}</p>
+                <h3 className="text-xl font-semibold text-gold">Crédit #{credit.id}</h3>
+                <p className="text-sm text-pearl/60">Client ID: {credit.clientId}</p>
               </div>
-              <div className="space-y-2 mb-4">
-                <p className="text-sm">
-                  <span className="font-medium">Montant:</span> {formatAmount(credit.principalAmount)}
+              <div className="space-y-2 mb-6">
+                <p className="text-sm text-pearl">
+                  <span className="text-pearl/60">Montant:</span> <span className="font-semibold">{formatAmount(credit.principalAmount)}</span>
                 </p>
-                <p className="text-sm">
-                  <span className="font-medium">Taux annuel:</span> {(credit.annualInterestRate * 100).toFixed(2)}%
+                <p className="text-sm text-pearl">
+                  <span className="text-pearl/60">Taux annuel:</span> <span className="font-semibold">{(credit.annualInterestRate * 100).toFixed(2)}%</span>
                 </p>
-                <p className="text-sm">
-                  <span className="font-medium">Assurance:</span> {(credit.insuranceRate * 100).toFixed(2)}%
+                <p className="text-sm text-pearl">
+                  <span className="text-pearl/60">Assurance:</span> <span className="font-semibold">{(credit.insuranceRate * 100).toFixed(2)}%</span>
                 </p>
-                <p className="text-sm">
-                  <span className="font-medium">Mensualité:</span> {formatAmount(credit.monthlyPayment)}
+                <p className="text-sm text-pearl">
+                  <span className="text-pearl/60">Mensualité:</span> <span className="font-semibold text-gold">{formatAmount(credit.monthlyPayment)}</span>
                 </p>
-                <p className="text-sm">
-                  <span className="font-medium">Restant:</span> {formatAmount(credit.remainingBalance)}
+                <p className="text-sm text-pearl">
+                  <span className="text-pearl/60">Restant:</span> <span className="font-semibold text-gold">{formatAmount(credit.remainingBalance)}</span>
                 </p>
-                <p className="text-sm">
-                  <span className="font-medium">Statut:</span>
-                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                    credit.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                    credit.status === 'PAID_OFF' ? 'bg-blue-100 text-blue-800' :
-                    'bg-red-100 text-red-800'
+                <p className="text-sm text-pearl">
+                  <span className="text-pearl/60">Statut:</span>
+                  <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                    credit.status === 'ACTIVE' ? 'bg-green-900/30 text-green-400 border border-green-500/30' :
+                    credit.status === 'PAID_OFF' ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30' :
+                    'bg-red-900/30 text-red-400 border border-red-500/30'
                   }`}>
                     {credit.status}
                   </span>
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-pearl/40 mt-2">
                   Prochain paiement: {formatDate(credit.nextPaymentDate)}
                 </p>
               </div>
@@ -143,7 +145,7 @@ export default function CreditsPage() {
                     setSelectedCredit(credit.id);
                     setShowPaymentModal(true);
                   }}
-                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  className="btn-premium w-full"
                 >
                   Traiter un paiement
                 </button>
@@ -153,63 +155,64 @@ export default function CreditsPage() {
         </div>
       )}
 
+      {/* Modal création crédit */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-2xl font-bold mb-4">Attribuer un crédit</h2>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass border border-gold/30 rounded-xl p-8 max-w-md w-full mx-4">
+            <h2 className="font-display text-3xl font-bold mb-6 text-gold text-center">Attribuer un crédit</h2>
             <form onSubmit={handleCreateCredit}>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ID Client</label>
+                  <label className="block text-sm font-medium text-gold mb-2">ID Client</label>
                   <input
                     type="number"
                     value={formData.userId}
                     onChange={(e) => setFormData({...formData, userId: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     placeholder="ID du client"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Montant (€)</label>
+                  <label className="block text-sm font-medium text-gold mb-2">Montant (€)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.amount}
                     onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Taux annuel (%)</label>
+                  <label className="block text-sm font-medium text-gold mb-2">Taux annuel (%)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.annualRate}
                     onChange={(e) => setFormData({...formData, annualRate: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Assurance (%)</label>
+                  <label className="block text-sm font-medium text-gold mb-2">Assurance (%)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.insurance}
                     onChange={(e) => setFormData({...formData, insurance: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Durée (mois)</label>
+                  <label className="block text-sm font-medium text-gold mb-2">Durée (mois)</label>
                   <input
                     type="number"
                     value={formData.durationMonths}
                     onChange={(e) => setFormData({...formData, durationMonths: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="input-premium w-full"
                     required
                   />
                 </div>
@@ -218,13 +221,13 @@ export default function CreditsPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  className="btn-premium"
                 >
                   Créer
                 </button>
@@ -234,17 +237,18 @@ export default function CreditsPage() {
         </div>
       )}
 
+      {/* Modal traitement paiement */}
       {showPaymentModal && selectedCredit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-2xl font-bold mb-4">Traiter un paiement</h2>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass border border-gold/30 rounded-xl p-8 max-w-md w-full mx-4">
+            <h2 className="font-display text-3xl font-bold mb-6 text-gold text-center">Traiter un paiement</h2>
             <form onSubmit={handleProcessPayment}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Compte à débiter</label>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gold mb-2">Compte à débiter</label>
                 <select
                   value={paymentAccountId}
                   onChange={(e) => setPaymentAccountId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="input-premium w-full"
                   required
                 >
                   <option value="">Sélectionner un compte</option>
@@ -262,13 +266,13 @@ export default function CreditsPage() {
                     setShowPaymentModal(false);
                     setSelectedCredit(null);
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="btn-premium"
                 >
                   Traiter
                 </button>
@@ -280,4 +284,3 @@ export default function CreditsPage() {
     </div>
   );
 }
-
