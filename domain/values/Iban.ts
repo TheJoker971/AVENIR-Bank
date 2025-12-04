@@ -15,6 +15,14 @@ export class Iban {
         return new Iban(iban);
     }
 
+    public static fromString(ibanString: string): Iban | Error {
+        // Validation basique de l'IBAN
+        const ibanRegex = /^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/;
+        if (!ibanRegex.test(ibanString)) {
+            return new Error("Format IBAN invalide");
+        }
+        return new Iban(ibanString);
+    }
 
     private constructor(public value:IbanType){}
 

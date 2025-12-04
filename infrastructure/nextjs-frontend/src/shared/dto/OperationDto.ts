@@ -3,17 +3,20 @@
  */
 export interface OperationDto {
   id: number;
-  data: {
+  type: 'TRANSFER';
+  transferData: {
+    senderLastName: string;
+    senderFirstName: string;
     senderIban: string;
+    receiverLastName: string;
+    receiverFirstName: string;
     receiverIban: string;
-    senderName: string;
-    receiverName: string;
+    instantTransfer: boolean;
     reason?: string;
-    isInstantTransfer: boolean;
   };
   amount: number;
   status: 'PENDING' | 'COMPLETED' | 'FAILED';
   date: string;
-  completedAt?: string;
+  completedAt?: string | null;
 }
 

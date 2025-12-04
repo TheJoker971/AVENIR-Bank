@@ -64,10 +64,10 @@ const beneficiaryRepository = new BeneficiaryRepositoryInMemory();
 const stockHoldingRepository = new StockHoldingRepositoryInMemory();
 
 // Initialisation des contrôleurs
-const accountController = new AccountController(accountRepository);
-const userController = new UserController(userRepository);
+const accountController = new AccountController(accountRepository, operationRepository);
+const userController = new UserController(userRepository, accountRepository);
 const authController = new AuthController(userRepository, accountRepository);
-const operationController = new OperationController(operationRepository, accountRepository);
+const operationController = new OperationController(operationRepository, accountRepository, userRepository);
 const savingsAccountController = new SavingsAccountController(savingsAccountRepository);
 const stockController = new StockController(stockRepository);
 const orderController = new OrderController(
@@ -112,7 +112,7 @@ app.get('/', (req: Request, res: Response) => {
 // Route de seeding des données
 app.post('/api/seed', async (req: Request, res: Response) => {
   try {
-    await seed(userRepository, accountRepository, savingsAccountRepository, bankRepository, stockRepository, notificationRepository, beneficiaryRepository);
+    await seed(userRepository, accountRepository, savingsAccountRepository, bankRepository, stockRepository, notificationRepository, beneficiaryRepository, operationRepository, orderRepository);
     res.json({ message: 'Données créées avec succès !' });
   } catch (error: any) {
     console.error('Erreur lors du seeding:', error);
@@ -147,7 +147,9 @@ async function startServer() {
       bankRepository,
       stockRepository,
       notificationRepository,
-      beneficiaryRepository
+      beneficiaryRepository,
+      operationRepository,
+      orderRepository
     );
     console.log('✅ Données initialisées avec succès !\n');
   } catch (error: any) {

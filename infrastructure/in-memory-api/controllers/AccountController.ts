@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { AccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
+import { OperationRepositoryInterface } from '../../../application/repositories/OperationRepositoryInterface';
 import { CreateAccountUseCase } from '../../../application/use-cases/account/CreateAccountUseCase';
 import { UserRepositoryInMemory } from '../../repositories/in-memory/UserRepositoryInMemory';
 import { requireAuth } from '../middlewares/auth';
@@ -9,7 +10,10 @@ export class AccountController {
   private router: Router;
   private createAccountUseCase: CreateAccountUseCase;
 
-  constructor(private accountRepository: AccountRepositoryInterface) {
+  constructor(
+    private accountRepository: AccountRepositoryInterface,
+    private operationRepository?: OperationRepositoryInterface
+  ) {
     this.router = Router();
     const userRepository = new UserRepositoryInMemory();
     this.createAccountUseCase = new CreateAccountUseCase(accountRepository, userRepository);
@@ -32,13 +36,152 @@ export class AccountController {
   }
 
   private setupRoutes(): void {
+    // GET /api/accounts/:accountId/operations - Récupère les opérations d'un compte
+    this.router.get('/:accountId/operations', requireAuth, async (req: Request, res: Response) => {
+      try {
+        const accountId = parseInt(req.params.accountId);
+        const userId = (req as any).userId;
+
+        // Récupérer le compte
+        const account = await this.accountRepository.findById(accountId);
+        if (!account) {
+          return res.status(404).json({ error: 'Compte non trouvé' });
+        }
+
+        // Vérifier que l'utilisateur est bien le propriétaire du compte
+        if (account.ownerId !== userId && account.ownerID !== userId) {
+          return res.status(403).json({ error: 'Accès non autorisé à ce compte' });
+        }
+
+        // Récupérer les opérations du compte
+        if (!this.operationRepository) {
+          return res.status(500).json({ error: 'Service d\'opérations non disponible' });
+        }
+
+        const iban = account.iban?.value || account.iban;
+        const operations = await this.operationRepository.findByAccountIban(iban);
+        
+        // Convertir les opérations en DTO avec gestion des différents formats
+        const operationsDto = operations.map(op => {
+          try {
+            const transferData = op.getTransferData();
+            
+            // Vérifier si c'est un objet TransferData valide avec les méthodes
+            const hasMethods = typeof transferData.getSenderLastName === 'function';
+            
+            if (hasMethods) {
+              // Format correct avec méthodes
+              const senderIban = transferData.getSenderIban().value;
+              const receiverIban = transferData.getReceiverIban().value;
+              
+              console.log(`📤 [AccountController] Opération ${op.getId()}:`, {
+                senderIban,
+                receiverIban,
+                senderName: `${transferData.getSenderFirstName()} ${transferData.getSenderLastName()}`,
+                receiverName: `${transferData.getReceiverFirstName()} ${transferData.getReceiverLastName()}`
+              });
+              
+              return {
+                id: op.getId(),
+                type: 'TRANSFER',
+                amount: typeof op.getAmount() === 'number' ? op.getAmount() : op.getAmount().value,
+                status: op.getStatus(),
+                date: op.getDate().toISOString(),
+                transferData: {
+                  senderLastName: transferData.getSenderLastName(),
+                  senderFirstName: transferData.getSenderFirstName(),
+                  senderIban,
+                  receiverLastName: transferData.getReceiverLastName(),
+                  receiverFirstName: transferData.getReceiverFirstName(),
+                  receiverIban,
+                  instantTransfer: transferData.isInstantTransfer(),
+                  reason: transferData.getReason() || '',
+                },
+                completedAt: op.getCompletedAt()?.toISOString(),
+              };
+            } else {
+              // Format legacy du seed (objet simple)
+              const data = transferData as any;
+              return {
+                id: op.getId(),
+                type: 'TRANSFER',
+                amount: typeof op.getAmount() === 'number' ? op.getAmount() : op.getAmount().value,
+                status: op.getStatus(),
+                date: op.getDate().toISOString(),
+                transferData: {
+                  senderLastName: data.senderLastName || '',
+                  senderFirstName: data.senderFirstName || '',
+                  senderIban: data.senderIban?.value || data.senderIban || '',
+                  receiverLastName: data.receiverLastName || '',
+                  receiverFirstName: data.receiverFirstName || '',
+                  receiverIban: data.receiverIban?.value || data.receiverIban || '',
+                  instantTransfer: data.instantTransfer || false,
+                  reason: data.reason || '',
+                },
+                completedAt: op.getCompletedAt()?.toISOString(),
+              };
+            }
+          } catch (error) {
+            console.error(`❌ Erreur lors de la conversion de l'opération ${op.getId()}:`, error);
+            // Retourner un objet par défaut en cas d'erreur
+            return {
+              id: op.getId(),
+              type: 'TRANSFER',
+              amount: 0,
+              status: op.getStatus(),
+              date: op.getDate().toISOString(),
+              transferData: {
+                senderLastName: '',
+                senderFirstName: '',
+                senderIban: op.getSenderIban() || '',
+                receiverLastName: '',
+                receiverFirstName: '',
+                receiverIban: op.getReceiverIban() || '',
+                instantTransfer: false,
+                reason: '',
+              },
+              completedAt: null,
+            };
+          }
+        });
+
+        res.json(operationsDto);
+      } catch (error: any) {
+        console.error('Erreur lors de la récupération des opérations:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des opérations', details: error.message });
+      }
+    });
+
     // GET /api/accounts - Liste tous les comptes de l'utilisateur authentifié
     this.router.get('/', requireAuth, filterUserAccounts, async (req: Request, res: Response) => {
       try {
         const userId = (req as any).userId;
-        const accounts = await this.accountRepository.findByOwnerId(userId);
-        res.json(this.toAccountDtoArray(accounts));
+        
+        // HACK: Comme AccountEntity n'a pas d'ID, on doit récupérer tous les comptes
+        // et trouver les IDs en parcourant le repository
+        const allAccounts = await this.accountRepository.findAll();
+        const userAccountsWithIds: any[] = [];
+        
+        // Si le repository est in-memory, on peut accéder à la Map interne
+        const repo = this.accountRepository as any;
+        if (repo.accounts && repo.accounts instanceof Map) {
+          for (const [id, account] of repo.accounts.entries()) {
+            if (account.ownerId === userId || account.ownerID === userId) {
+              userAccountsWithIds.push({
+                ...account,
+                id: id // Ajouter l'ID à l'objet
+              });
+            }
+          }
+        } else {
+          // Fallback: retourner sans IDs (problème actuel)
+          const accounts = await this.accountRepository.findByOwnerId(userId);
+          return res.json(this.toAccountDtoArray(accounts));
+        }
+        
+        res.json(this.toAccountDtoArray(userAccountsWithIds));
       } catch (error) {
+        console.error('Erreur dans GET /api/accounts:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération des comptes' });
       }
     });

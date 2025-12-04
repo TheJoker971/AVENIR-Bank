@@ -25,7 +25,7 @@ export default function AdminPage() {
 
   const handleUpdateRate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rate = parseFloat(newRate) / 100; // Convertir en décimal
+    const rate = parseFloat(newRate); // Le taux est déjà en pourcentage (0-100)
     
     const success = await updateInterestRate(rate);
     if (success) {
@@ -84,7 +84,7 @@ export default function AdminPage() {
               Taux actuel d'intérêt du Livret A
             </p>
             <p className="font-display text-6xl font-bold text-gold">
-              {(bankInfo.interestRate * 100).toFixed(2)}%
+              {bankInfo.interestRate.toFixed(2)}%
             </p>
           </div>
         )}

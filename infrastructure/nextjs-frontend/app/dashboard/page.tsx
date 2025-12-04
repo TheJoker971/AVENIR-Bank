@@ -1,5 +1,5 @@
 /**
- * Page Dashboard Premium
+ * Page Dashboard - Version simplifiée
  */
 'use client';
 
@@ -7,52 +7,100 @@ import { useAuth } from '@/presentation/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useActiveAccount } from '@/presentation/hooks/useActiveAccount';
+import { useOperations } from '@/presentation/hooks/useOperations';
 import { useAccounts } from '@/presentation/hooks/useAccounts';
-import { usePortfolio } from '@/presentation/hooks/usePortfolio';
-import { useSavingsTotalValue } from '@/presentation/hooks/useSavingsTotalValue';
 import { formatAmount } from '@/shared/utils';
+import { OperationDto } from '@/shared/dto';
 
 export default function DashboardPage() {
-  const { user, loading, isAuthenticated } = useAuth();
-  const { accounts, savingsAccounts } = useAccounts(user?.id || null);
-  const { portfolio, totalValue: portfolioValue, totalGainLoss } = usePortfolio(user?.id || null);
-  const { getTotalValue } = useSavingsTotalValue();
-  const [totalSavingsValue, setTotalSavingsValue] = useState(0);
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { activeAccount, fetchActiveAccount, refreshTrigger } = useActiveAccount();
+  const { getAccountOperations } = useOperations();
+  const { savingsAccounts, loading: savingsLoading } = useAccounts(user?.id || null);
+  const [operations, setOperations] = useState<OperationDto[]>([]);
+  const [loadingOperations, setLoadingOperations] = useState(true);
   const router = useRouter();
 
+  // Charger le compte actif
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push('/login');
+    if (user && isAuthenticated && user.role === 'CLIENT') {
+      fetchActiveAccount(user.id);
     }
-  }, [loading, isAuthenticated, router]);
+  }, [user, isAuthenticated]);
 
+  // Charger les opérations du compte actif (et recharger quand refreshTrigger change)
   useEffect(() => {
-    const loadSavingsTotalValues = async () => {
-      if (savingsAccounts.length === 0) return;
-      
-      let total = 0;
-      for (const account of savingsAccounts) {
-        const totalValue = await getTotalValue(account.id);
-        if (totalValue) {
-          total += totalValue.totalValue;
+    const loadOperations = async () => {
+      if (activeAccount) {
+        console.log('🔄 [Dashboard] Chargement des opérations pour compte actif:', activeAccount.id, activeAccount.iban);
+        setLoadingOperations(true);
+        const ops = await getAccountOperations(activeAccount.id);
+        console.log('📊 [Dashboard] Opérations reçues:', ops?.length || 0);
+        if (ops) {
+          // Trier par date décroissante (les plus récentes en premier)
+          const sortedOps = [...ops].sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            return dateB - dateA; // Décroissant
+          });
+          // Garder seulement les 10 dernières opérations
+          setOperations(sortedOps.slice(0, 10));
+        } else {
+          setOperations([]);
         }
+        setLoadingOperations(false);
       }
-      setTotalSavingsValue(total);
     };
 
-    if (savingsAccounts.length > 0) {
-      loadSavingsTotalValues();
+    if (activeAccount) {
+      loadOperations();
     }
-  }, [savingsAccounts, getTotalValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccount, refreshTrigger]);
 
-  if (loading) {
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  // Fonction pour formater la date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(date);
+  };
+
+  // Fonction pour obtenir le statut en français
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'COMPLETED': return 'Complétée';
+      case 'PENDING': return 'En attente';
+      case 'REJECTED': return 'Rejetée';
+      default: return status;
+    }
+  };
+
+  // Fonction pour obtenir la couleur du statut
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'COMPLETED': return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+      case 'PENDING': return 'bg-orange-100 text-orange-700 border border-orange-200';
+      case 'REJECTED': return 'bg-rose-100 text-rose-700 border border-rose-200';
+      default: return 'bg-slate-100 text-slate-700 border border-slate-200';
+    }
+  };
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center space-x-3">
-          <div className="w-3 h-3 bg-gold rounded-full animate-pulse"></div>
-          <div className="w-3 h-3 bg-gold rounded-full animate-pulse delay-75"></div>
-          <div className="w-3 h-3 bg-gold rounded-full animate-pulse delay-150"></div>
-          <span className="text-pearl/60 ml-4">Chargement de votre espace...</span>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-sky-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-slate-600">Chargement...</p>
         </div>
       </div>
     );
@@ -62,181 +110,212 @@ export default function DashboardPage() {
     return null;
   }
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-  const totalSavingsBalance = savingsAccounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-  const totalPortfolioValue = totalBalance + (totalSavingsValue || totalSavingsBalance) + (portfolioValue || 0);
-
-  const getRoleName = (role: string) => {
-    switch (role) {
-      case 'CLIENT': return 'Client Prestige';
-      case 'ADVISE': return 'Conseiller Privé';
-      case 'DIRECTOR': return 'Directeur';
-      default: return role;
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* En-tête */}
-      <div className="mb-12">
-        <div className="flex items-center space-x-4 mb-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gold via-yellow-400 to-gold flex items-center justify-center shadow-xl shadow-gold/30">
-            <span className="text-3xl">
-              {user.role === 'DIRECTOR' ? '👑' : user.role === 'ADVISE' ? '💼' : '💎'}
-            </span>
-          </div>
-          <div>
-            <h1 className="font-display text-4xl font-bold text-gold">
-              Bienvenue, {user.firstname}
-            </h1>
-            <p className="text-pearl/60 text-sm mt-1">{getRoleName(user.role)}</p>
-          </div>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">
+          Bienvenue, {user.firstname}
+        </h1>
+        <p className="text-slate-600">Voici un aperçu de votre compte</p>
       </div>
 
       {/* Dashboard Client */}
       {user.role === 'CLIENT' && (
         <>
-          {/* Patrimoine Total */}
-          <div className="luxury-card p-8 rounded-2xl mb-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gold/5 rounded-full blur-3xl"></div>
-            <div className="relative">
-              <p className="text-pearl/60 text-sm mb-2">Patrimoine Total</p>
-              <p className="font-display text-6xl font-bold text-gold mb-4">
-                {formatAmount(totalPortfolioValue)}
-              </p>
-              <div className="flex items-center space-x-4 text-sm">
-                <div>
-                  <span className="text-pearl/60">Comptes: </span>
-                  <span className="text-pearl font-medium">{formatAmount(totalBalance)}</span>
-                </div>
-                <div>
-                  <span className="text-pearl/60">Épargne: </span>
-                  <span className="text-pearl font-medium">{formatAmount(totalSavingsValue || totalSavingsBalance)}</span>
-                </div>
-                <div>
-                  <span className="text-pearl/60">Actions: </span>
-                  <span className="text-pearl font-medium">{formatAmount(portfolioValue || 0)}</span>
+          {/* Widget Compte Actif - Simplifié */}
+          {activeAccount ? (
+            <div className="mb-8 p-8 bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50 border border-sky-200/60 rounded-2xl shadow-md shadow-sky-200/40">
+              <div className="flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-sm text-slate-600 mb-2">Votre solde disponible</p>
+                  <p className="text-5xl font-bold text-sky-600 mb-1">{formatAmount(activeAccount.balance)}</p>
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    <p className="text-xs text-slate-400">Compte ****{activeAccount.iban.slice(-4)}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <p className="text-sm text-amber-800 font-semibold mb-1">Aucun compte actif</p>
+                  <p className="text-xs text-amber-700">
+                    Veuillez sélectionner un compte actif pour accéder à votre dashboard.
+                  </p>
+                </div>
+              </div>
+              <Link href="/select-account" className="mt-4 inline-block btn-premium py-2 px-4 text-sm">
+                Sélectionner un compte
+              </Link>
+            </div>
+          )}
 
-          {/* Services rapides */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Link href="/accounts" className="luxury-card p-6 rounded-xl group">
-              <div className="text-4xl mb-4">💰</div>
-              <h3 className="text-xl font-semibold text-gold mb-2 group-hover:text-yellow-400 transition-colors">
-                Comptes
-              </h3>
-              <p className="text-2xl font-bold text-pearl mb-1">{accounts.length}</p>
-              <p className="text-pearl/60 text-sm">{formatAmount(totalBalance)}</p>
-            </Link>
+          {/* Section Dernières Opérations */}
+          {activeAccount && (
+            <div className="luxury-card p-6 rounded-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Dernières opérations</h2>
+                <Link
+                  href="/operations"
+                  className="text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors duration-200 flex items-center gap-1"
+                >
+                  Voir tout
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
 
-            <Link href="/savings" className="luxury-card p-6 rounded-xl group">
-              <div className="text-4xl mb-4">📊</div>
-              <h3 className="text-xl font-semibold text-gold mb-2 group-hover:text-yellow-400 transition-colors">
-                Épargne
-              </h3>
-              <p className="text-2xl font-bold text-pearl mb-1">{savingsAccounts.length}</p>
-              <p className="text-pearl/60 text-sm">{formatAmount(totalSavingsBalance)}</p>
-            </Link>
-
-            <Link href="/portfolio" className="luxury-card p-6 rounded-xl group">
-              <div className="text-4xl mb-4">📈</div>
-              <h3 className="text-xl font-semibold text-gold mb-2 group-hover:text-yellow-400 transition-colors">
-                Portefeuille
-              </h3>
-              <p className="text-2xl font-bold text-pearl mb-1">{formatAmount(portfolioValue || 0)}</p>
-              {totalGainLoss !== undefined && (
-                <p className={`text-sm ${totalGainLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {totalGainLoss >= 0 ? '+' : ''}{formatAmount(totalGainLoss)}
-                </p>
+              {loadingOperations ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-sky-500 border-t-transparent mx-auto"></div>
+                  <p className="text-slate-500 text-sm mt-4">Chargement des opérations...</p>
+                </div>
+              ) : operations.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-slate-500">Aucune opération pour le moment</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Description</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Statut</th>
+                        <th className="text-right py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Montant</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {operations.map((operation) => {
+                        // Normaliser les IBANs (retirer les espaces pour la comparaison)
+                        const normalizeIban = (iban: string) => iban.replace(/\s/g, '').toUpperCase();
+                        const senderIban = normalizeIban(operation.transferData.senderIban);
+                        const receiverIban = normalizeIban(operation.transferData.receiverIban);
+                        const activeIban = activeAccount?.iban ? normalizeIban(activeAccount.iban) : '';
+                        
+                        // Déterminer si c'est un crédit (on reçoit) ou un débit (on envoie)
+                        const isCredit = receiverIban === activeIban;
+                        const isDebit = senderIban === activeIban;
+                        
+                        console.log('🔍 [Dashboard] Comparaison IBAN:', {
+                          operationId: operation.id,
+                          senderIban,
+                          receiverIban,
+                          activeIban,
+                          isCredit,
+                          isDebit,
+                          senderName: `${operation.transferData.senderFirstName} ${operation.transferData.senderLastName}`,
+                          receiverName: `${operation.transferData.receiverFirstName} ${operation.transferData.receiverLastName}`
+                        });
+                        
+                        // Si on est le receiver → crédit, sinon débit
+                        const otherParty = isCredit 
+                          ? `${operation.transferData.senderFirstName} ${operation.transferData.senderLastName}`
+                          : `${operation.transferData.receiverFirstName} ${operation.transferData.receiverLastName}`;
+                        
+                        return (
+                          <tr key={operation.id} className="hover:bg-slate-50 transition-colors duration-150">
+                            <td className="py-4 px-4 text-sm text-slate-700">
+                              {formatDate(operation.date)}
+                            </td>
+                            <td className="py-4 px-4 text-sm text-slate-900">
+                              <div>
+                                {operation.transferData.reason && (
+                                  <p className="font-medium">{operation.transferData.reason}</p>
+                                )}
+                                <p className="text-xs text-slate-500">
+                                  {isCredit ? 'De : ' : 'Vers : '}{otherParty}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(operation.status)}`}>
+                                {getStatusLabel(operation.status)}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <span className={`text-sm font-semibold ${
+                                isCredit ? 'text-emerald-600' : 'text-red-600'
+                              }`}>
+                                {isCredit ? '+' : '-'}{formatAmount(operation.amount)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </Link>
-
-            <Link href="/transfer" className="luxury-card p-6 rounded-xl group">
-              <div className="text-4xl mb-4">💸</div>
-              <h3 className="text-xl font-semibold text-gold mb-2 group-hover:text-yellow-400 transition-colors">
-                Virements
-              </h3>
-              <p className="text-pearl/60 text-sm mt-8">Effectuer un virement</p>
-            </Link>
-          </div>
-
-          {/* Services additionnels */}
-          <div className="mb-8">
-            <h2 className="font-display text-2xl font-bold text-gold mb-6">Vos Services</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Link href="/stocks" className="glass p-6 rounded-xl border border-gold/20 hover:border-gold/40 transition-all duration-300">
-                <div className="flex items-center space-x-4">
-                  <div className="text-3xl">🏛️</div>
-                  <div>
-                    <h3 className="font-semibold text-pearl">Investissements</h3>
-                    <p className="text-sm text-pearl/60">Actions & Marchés</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/operations" className="glass p-6 rounded-xl border border-gold/20 hover:border-gold/40 transition-all duration-300">
-                <div className="flex items-center space-x-4">
-                  <div className="text-3xl">📋</div>
-                  <div>
-                    <h3 className="font-semibold text-pearl">Opérations</h3>
-                    <p className="text-sm text-pearl/60">Historique & Suivi</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/messages" className="glass p-6 rounded-xl border border-gold/20 hover:border-gold/40 transition-all duration-300">
-                <div className="flex items-center space-x-4">
-                  <div className="text-3xl">💬</div>
-                  <div>
-                    <h3 className="font-semibold text-pearl">Messagerie</h3>
-                    <p className="text-sm text-pearl/60">Conseiller Privé</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/beneficiaries" className="glass p-6 rounded-xl border border-gold/20 hover:border-gold/40 transition-all duration-300">
-                <div className="flex items-center space-x-4">
-                  <div className="text-3xl">👥</div>
-                  <div>
-                    <h3 className="font-semibold text-pearl">Bénéficiaires</h3>
-                    <p className="text-sm text-pearl/60">Gestion des contacts</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/notifications" className="glass p-6 rounded-xl border border-gold/20 hover:border-gold/40 transition-all duration-300">
-                <div className="flex items-center space-x-4">
-                  <div className="text-3xl">🔔</div>
-                  <div>
-                    <h3 className="font-semibold text-pearl">Notifications</h3>
-                    <p className="text-sm text-pearl/60">Alertes & Actualités</p>
-                  </div>
-                </div>
-              </Link>
             </div>
-          </div>
+          )}
 
-          {/* Derniers comptes */}
-          {accounts.length > 0 && (
-            <div className="luxury-card p-8 rounded-2xl">
-              <h2 className="font-display text-2xl font-bold text-gold mb-6">Vos Comptes</h2>
-              <div className="space-y-4">
-                {accounts.slice(0, 3).map((account) => (
-                  <div key={account.id} className="flex justify-between items-center p-4 glass rounded-lg border border-gold/10">
-                    <div>
-                      <p className="text-pearl font-medium">{account.accountNumber}</p>
-                      <p className="text-pearl/60 text-sm">{account.iban}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-gold">{formatAmount(account.balance || 0)}</p>
-                    </div>
-                  </div>
-                ))}
+          {/* Section Épargnes */}
+          {activeAccount && (
+            <div className="luxury-card p-6 rounded-2xl mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Mes épargnes</h2>
+                <Link
+                  href="/savings"
+                  className="text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors duration-200 flex items-center gap-1"
+                >
+                  Voir tout
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
+
+              {savingsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-sky-500 border-t-transparent mx-auto"></div>
+                  <p className="text-slate-500 text-sm mt-4">Chargement des épargnes...</p>
+                </div>
+              ) : savingsAccounts.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <p className="text-slate-500 mb-4">Aucun compte épargne pour le moment</p>
+                  <Link href="/savings" className="btn-premium py-2 px-6 inline-block text-sm">
+                    Créer un compte épargne
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {savingsAccounts.map((account) => (
+                    <div key={account.id} className="p-5 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 border border-emerald-200/60 rounded-xl hover:shadow-md transition-shadow duration-200">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-slate-500 font-medium">Épargne</p>
+                          <p className="text-sm font-mono font-semibold text-slate-800">****{account.iban?.slice(-4) || account.accountNumber?.slice(-4)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <p className="text-xs text-slate-500 mb-1">Solde</p>
+                        <p className="text-2xl font-bold text-emerald-600">{formatAmount(account.balance || 0)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </>
@@ -245,22 +324,22 @@ export default function DashboardPage() {
       {/* Dashboard Conseiller */}
       {user.role === 'ADVISE' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href="/credits" className="luxury-card p-8 rounded-xl">
+          <Link href="/credits" className="luxury-card p-8 rounded-xl hover:shadow-lg transition-shadow duration-200">
             <div className="text-5xl mb-4">💳</div>
-            <h3 className="text-2xl font-semibold text-gold mb-2">Crédits</h3>
-            <p className="text-pearl/60">Gérer les demandes de crédit</p>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">Crédits</h3>
+            <p className="text-slate-600">Gérer les demandes de crédit</p>
           </Link>
 
-          <Link href="/messages" className="luxury-card p-8 rounded-xl">
+          <Link href="/messages" className="luxury-card p-8 rounded-xl hover:shadow-lg transition-shadow duration-200">
             <div className="text-5xl mb-4">💬</div>
-            <h3 className="text-2xl font-semibold text-gold mb-2">Messagerie</h3>
-            <p className="text-pearl/60">Communiquer avec vos clients</p>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">Messagerie</h3>
+            <p className="text-slate-600">Communiquer avec vos clients</p>
           </Link>
 
-          <Link href="/notifications" className="luxury-card p-8 rounded-xl">
+          <Link href="/notifications" className="luxury-card p-8 rounded-xl hover:shadow-lg transition-shadow duration-200">
             <div className="text-5xl mb-4">🔔</div>
-            <h3 className="text-2xl font-semibold text-gold mb-2">Notifications</h3>
-            <p className="text-pearl/60">Alertes importantes</p>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">Notifications</h3>
+            <p className="text-slate-600">Alertes importantes</p>
           </Link>
         </div>
       )}
@@ -268,28 +347,28 @@ export default function DashboardPage() {
       {/* Dashboard Directeur */}
       {user.role === 'DIRECTOR' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href="/admin" className="luxury-card p-8 rounded-xl">
+          <Link href="/admin" className="luxury-card p-8 rounded-xl hover:shadow-lg transition-shadow duration-200">
             <div className="text-5xl mb-4">⚙️</div>
-            <h3 className="text-2xl font-semibold text-gold mb-2">Administration</h3>
-            <p className="text-pearl/60">Paramètres de la banque</p>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">Administration</h3>
+            <p className="text-slate-600">Paramètres de la banque</p>
           </Link>
 
-          <Link href="/admin/users" className="luxury-card p-8 rounded-xl">
+          <Link href="/admin/users" className="luxury-card p-8 rounded-xl hover:shadow-lg transition-shadow duration-200">
             <div className="text-5xl mb-4">👥</div>
-            <h3 className="text-2xl font-semibold text-gold mb-2">Utilisateurs</h3>
-            <p className="text-pearl/60">Gestion des comptes</p>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">Utilisateurs</h3>
+            <p className="text-slate-600">Gestion des comptes</p>
           </Link>
 
-          <Link href="/admin/stocks" className="luxury-card p-8 rounded-xl">
+          <Link href="/admin/stocks" className="luxury-card p-8 rounded-xl hover:shadow-lg transition-shadow duration-200">
             <div className="text-5xl mb-4">📊</div>
-            <h3 className="text-2xl font-semibold text-gold mb-2">Actions</h3>
-            <p className="text-pearl/60">Gestion du marché</p>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">Actions</h3>
+            <p className="text-slate-600">Gestion du marché</p>
           </Link>
 
-          <Link href="/notifications" className="luxury-card p-8 rounded-xl">
+          <Link href="/notifications" className="luxury-card p-8 rounded-xl hover:shadow-lg transition-shadow duration-200">
             <div className="text-5xl mb-4">🔔</div>
-            <h3 className="text-2xl font-semibold text-gold mb-2">Notifications</h3>
-            <p className="text-pearl/60">Centre de notifications</p>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">Notifications</h3>
+            <p className="text-slate-600">Centre de notifications</p>
           </Link>
         </div>
       )}

@@ -3,6 +3,7 @@
  */
 import type { Metadata } from 'next';
 import { Header } from '@/presentation/components/Header';
+import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -18,26 +19,35 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
-        <div className="relative min-h-screen">
-          {/* Background gradient overlay */}
-          <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black opacity-95 z-0" />
-          
-          {/* Subtle pattern overlay */}
-          <div 
-            className="fixed inset-0 opacity-5 z-0"
-            style={{
-              backgroundImage: `radial-gradient(circle at 2px 2px, rgba(212, 175, 55, 0.4) 1px, transparent 0)`,
-              backgroundSize: '40px 40px'
-            }}
-          />
-          
-          <div className="relative z-10">
-            <Header />
-            <main className="min-h-screen">
-              {children}
-            </main>
+        <Providers>
+          <div className="relative min-h-screen">
+            {/* Modern gradient background */}
+            <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-sky-50 to-blue-100 z-0" />
+            
+            {/* Animated blue circles */}
+            <div className="fixed inset-0 overflow-hidden z-0">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
+              <div className="absolute bottom-0 left-0 w-96 h-96 bg-sky-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+              <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
+            </div>
+            
+            {/* Subtle pattern overlay */}
+            <div 
+              className="fixed inset-0 opacity-[0.015] z-0"
+              style={{
+                backgroundImage: `radial-gradient(circle at 2px 2px, rgba(14, 165, 233, 0.6) 1px, transparent 0)`,
+                backgroundSize: '40px 40px'
+              }}
+            />
+            
+            <div className="relative z-10">
+              <Header />
+              <main className="min-h-screen">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
+        </Providers>
       </body>
     </html>
   );

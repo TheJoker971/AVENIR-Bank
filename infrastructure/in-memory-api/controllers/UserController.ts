@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { UserRepositoryInterface } from '../../../application/repositories/UserRepositoryInterface';
+import { AccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
 import { CreateUserUseCase } from '../../../application/use-cases/admin/CreateUserUseCase';
 import { BanUserUseCase } from '../../../application/use-cases/admin/BanUserUseCase';
 import { UnbanUserUseCase } from '../../../application/use-cases/admin/UnbanUserUseCase';
@@ -15,7 +16,10 @@ export class UserController {
   private assignAdvisorUseCase: AssignAdvisorToClientUseCase;
   private removeAdvisorUseCase: RemoveAdvisorFromClientUseCase;
 
-  constructor(private userRepository: UserRepositoryInterface) {
+  constructor(
+    private userRepository: UserRepositoryInterface,
+    private accountRepository?: AccountRepositoryInterface
+  ) {
     this.router = Router();
     this.createUserUseCase = new CreateUserUseCase(userRepository);
     this.banUserUseCase = new BanUserUseCase(userRepository);
@@ -35,6 +39,7 @@ export class UserController {
       role: user.role?.value || user.role || '',
       banned: user.banned || false,
       advisorId: user.advisorId || null, // ID du conseiller assigné (pour les clients)
+      activeAccountId: user.activeAccountId || null, // ID du compte actif
     };
   }
 
@@ -270,9 +275,129 @@ export class UserController {
         });
       }
     });
+
+    // PUT /api/users/:userId/active-account - Définir le compte actif
+    this.router.put('/:userId/active-account', requireAuth, async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.userId);
+        const authenticatedUserId = (req as any).userId;
+        const { accountId } = req.body;
+
+        // Vérifier que l'utilisateur modifie son propre compte actif
+        if (userId !== authenticatedUserId) {
+          return res.status(403).json({ error: 'Vous ne pouvez modifier que votre propre compte actif' });
+        }
+
+        if (!accountId || isNaN(parseInt(accountId))) {
+          return res.status(400).json({ error: 'ID de compte invalide' });
+        }
+
+        // Récupérer l'utilisateur
+        const user = await this.userRepository.findById(userId);
+        if (!user || user instanceof Error) {
+          return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+
+        // Vérifier que le compte existe et appartient à l'utilisateur
+        if (this.accountRepository) {
+          const account = await this.accountRepository.findById(parseInt(accountId));
+          if (!account) {
+            return res.status(404).json({ error: 'Compte non trouvé' });
+          }
+
+          const accountOwnerId = account.ownerId || account.ownerID;
+          if (accountOwnerId !== userId) {
+            return res.status(403).json({ error: 'Ce compte ne vous appartient pas' });
+          }
+        }
+
+        // Définir le compte actif
+        const updatedUser = user.setActiveAccount(parseInt(accountId));
+        await this.userRepository.update(updatedUser);
+
+        res.json({ 
+          message: 'Compte actif défini avec succès',
+          activeAccountId: updatedUser.getActiveAccountId()
+        });
+      } catch (error: any) {
+        console.error('Erreur lors de la définition du compte actif:', error);
+        res.status(500).json({ 
+          error: 'Erreur lors de la définition du compte actif',
+          details: error.message 
+        });
+      }
+    });
+
+    // GET /api/users/:userId/active-account - Récupérer le compte actif
+    this.router.get('/:userId/active-account', requireAuth, async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.userId);
+        const authenticatedUserId = (req as any).userId;
+
+        // Vérifier que l'utilisateur consulte son propre compte actif
+        if (userId !== authenticatedUserId) {
+          return res.status(403).json({ error: 'Vous ne pouvez consulter que votre propre compte actif' });
+        }
+
+        // Récupérer l'utilisateur
+        const user = await this.userRepository.findById(userId);
+        if (!user || user instanceof Error) {
+          return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+
+        const activeAccountId = user.getActiveAccountId();
+
+        // Si aucun compte actif n'est défini
+        if (!activeAccountId) {
+          return res.json({ 
+            activeAccount: null,
+            message: 'Aucun compte actif défini'
+          });
+        }
+
+        // Récupérer les détails du compte actif
+        if (this.accountRepository) {
+          const account = await this.accountRepository.findById(activeAccountId);
+          if (!account) {
+            return res.json({ 
+              activeAccount: null,
+              message: 'Le compte actif n\'existe plus'
+            });
+          }
+
+          console.log('🔵 [UserController] Compte actif trouvé:', {
+            activeAccountId,
+            accountNumber: account.accountNumber?.value || account.accountNumber,
+            iban: account.iban?.value || account.iban,
+          });
+
+          res.json({
+            activeAccount: {
+              id: activeAccountId, // Utiliser l'ID passé en paramètre, pas account.id
+              accountNumber: account.accountNumber?.value || account.accountNumber || '',
+              iban: account.iban?.value || account.iban || '',
+              balance: typeof account.balance === 'number' ? account.balance : (account.balance?.value || 0),
+              ownerId: account.ownerId || account.ownerID || 0,
+            }
+          });
+        } else {
+          res.json({
+            activeAccountId,
+            message: 'Détails du compte non disponibles'
+          });
+        }
+      } catch (error: any) {
+        console.error('Erreur lors de la récupération du compte actif:', error);
+        res.status(500).json({ 
+          error: 'Erreur lors de la récupération du compte actif',
+          details: error.message 
+        });
+      }
+    });
   }
 
   public getRouter(): Router {
     return this.router;
   }
 }
+

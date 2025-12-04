@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { OperationRepositoryInterface } from '../../../application/repositories/OperationRepositoryInterface';
 import { AccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
+import { UserRepositoryInterface } from '../../../application/repositories/UserRepositoryInterface';
 import { CreateTransferUseCase } from '../../../application/use-cases/operation/CreateTransferUseCase';
 import { ExecuteTransferUseCase } from '../../../application/use-cases/operation/ExecuteTransferUseCase';
 import { requireAuth } from '../middlewares/auth';
@@ -12,7 +13,8 @@ export class OperationController {
 
   constructor(
     private operationRepository: OperationRepositoryInterface,
-    private accountRepository: AccountRepositoryInterface
+    private accountRepository: AccountRepositoryInterface,
+    private userRepository: UserRepositoryInterface
   ) {
     this.router = Router();
     this.createTransferUseCase = new CreateTransferUseCase(operationRepository, accountRepository);
@@ -61,8 +63,24 @@ export class OperationController {
     // POST /api/operations/transfer - Crée un nouveau virement
     this.router.post('/transfer', requireAuth, async (req: Request, res: Response) => {
       try {
-        const userId = (req as any).userId;
-        const userRole = (req as any).userRole;
+        const userId = (req as any).userId || req.headers['x-user-id'];
+        let userRole = (req as any).userRole || req.headers['x-user-role'];
+        
+        // Vérifier que userId est défini
+        const userIdNumber = typeof userId === 'string' ? parseInt(userId) : userId;
+        if (!userIdNumber || isNaN(userIdNumber)) {
+          return res.status(401).json({ error: 'Utilisateur non identifié' });
+        }
+        
+        // Récupérer l'utilisateur depuis la base de données pour vérifier le rôle
+        const senderUser = await this.userRepository.findById(userIdNumber);
+        
+        if (senderUser instanceof Error || !senderUser) {
+          return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        
+        // Utiliser le rôle de l'utilisateur depuis la base de données
+        userRole = senderUser.role.value;
         
         // Seuls les clients peuvent faire des virements
         if (userRole !== 'CLIENT') {
@@ -80,6 +98,11 @@ export class OperationController {
           reason,
           instantTransfer
         } = req.body;
+
+        console.log('📝 Données reçues pour le virement:');
+        console.log('   - receiverFirstName:', receiverFirstName);
+        console.log('   - receiverLastName:', receiverLastName);
+        console.log('   - receiverIban:', receiverIban);
 
         if (!senderIban || !receiverIban || amount === undefined) {
           return res.status(400).json({ error: 'Paramètres manquants' });
@@ -123,17 +146,11 @@ export class OperationController {
         }
 
         // Vérifier que le compte émetteur appartient à l'utilisateur
-        if (senderAccount.ownerId !== userId) {
+        if (senderAccount.ownerId !== userIdNumber) {
           return res.status(403).json({ error: 'Vous ne pouvez pas effectuer de virement depuis ce compte' });
         }
 
-        // Récupérer les informations de l'utilisateur émetteur
-        const { UserRepositoryInMemory } = await import('../../repositories/in-memory/UserRepositoryInMemory');
-        const userRepository = new UserRepositoryInMemory();
-        const senderUser = await userRepository.findById(userId);
-        if (senderUser instanceof Error || !senderUser) {
-          return res.status(404).json({ error: 'Utilisateur non trouvé' });
-        }
+        // L'utilisateur a déjà été récupéré ci-dessus pour vérifier le rôle
 
         const finalSenderFirstName = senderFirstName || senderUser.firstname;
         const finalSenderLastName = senderLastName || senderUser.lastname;
@@ -166,22 +183,27 @@ export class OperationController {
         // Vérifier que le compte destinataire existe OU que c'est un bénéficiaire du client
         const receiverAccount = await this.accountRepository.findByIban(receiverIbanObj);
         
+        console.log('   - receiverAccount exists:', !!receiverAccount);
+        
+        // Utiliser les valeurs du body en premier lieu
         let finalReceiverFirstName = receiverFirstName || '';
         let finalReceiverLastName = receiverLastName || '';
 
         if (receiverAccount) {
-          // Virement intrabancaire vers un compte propre
-          if (receiverAccount.ownerId !== userId) {
-            return res.status(403).json({ error: 'Vous ne pouvez effectuer des virements que vers vos propres comptes ou vos bénéficiaires' });
-          }
-          const receiverUser = await userRepository.findById(receiverAccount.ownerId);
+          // Virement intrabancaire vers un compte existant
+          // Récupérer les informations du destinataire
+          const receiverUser = await this.userRepository.findById(receiverAccount.ownerId);
           if (!(receiverUser instanceof Error) && receiverUser) {
             finalReceiverFirstName = receiverUser.firstname;
             finalReceiverLastName = receiverUser.lastname;
           }
+          console.log('   → Virement interne, noms récupérés du user');
         } else {
           // Virement vers un compte externe (bénéficiaire)
-          // Les bénéficiaires sont vérifiés côté front-end, donc on autorise
+          console.log('   → Virement externe (bénéficiaire)');
+          console.log('   - finalReceiverFirstName:', finalReceiverFirstName);
+          console.log('   - finalReceiverLastName:', finalReceiverLastName);
+          // Vérifier que les informations du bénéficiaire sont fournies
           if (!finalReceiverFirstName || !finalReceiverLastName) {
             return res.status(400).json({ error: 'Nom du bénéficiaire requis pour les virements externes' });
           }
@@ -200,15 +222,21 @@ export class OperationController {
         );
 
         if (operation instanceof Error) {
+          console.error('❌ Erreur lors de la création de l\'opération:', operation.message);
           return res.status(400).json({ error: operation.message });
         }
 
+        console.log('✅ Opération créée avec succès, ID:', operation.id);
+
         // Si le transfert est instantané, l'exécuter immédiatement
         if (instantTransfer !== false) {
+          console.log('⚡ Exécution instantanée du virement...');
           const executedOperation = await this.executeTransferUseCase.execute(operation.id);
           if (executedOperation instanceof Error) {
+            console.error('❌ Erreur lors de l\'exécution:', executedOperation.message);
             return res.status(400).json({ error: executedOperation.message });
           }
+          console.log('✅ Virement exécuté avec succès');
         }
 
         res.status(201).json(operation);

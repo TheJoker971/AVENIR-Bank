@@ -217,9 +217,9 @@ export default function AdminUsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-pearl/70">{u.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      u.role === 'DIRECTOR' ? 'bg-purple-900/30 text-purple-400 border border-purple-500/30' :
-                      u.role === 'ADVISE' ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30' :
-                      'bg-green-900/30 text-green-400 border border-green-500/30'
+                      u.role === 'DIRECTOR' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                      u.role === 'ADVISE' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                      'bg-sky-100 text-sky-700 border border-sky-200'
                     }`}>
                       {getRoleName(u.role)}
                     </span>

@@ -46,7 +46,45 @@ export const useAuth = () => {
         throw result;
       }
       setUser(result);
-      router.push('/dashboard');
+      
+      // Les admins et advisors vont directement au dashboard
+      if (result.role === 'DIRECTOR' || result.role === 'ADVISE') {
+        router.push('/dashboard');
+        return null;
+      }
+      
+      // Pour les clients, vérifier si l'utilisateur a un compte actif
+      if (result.role === 'CLIENT') {
+        try {
+          const activeAccountResponse = await fetch(`http://localhost:3000/api/users/${result.id}/active-account`, {
+            headers: {
+              'x-user-id': result.id.toString(),
+            },
+          });
+          
+          if (activeAccountResponse.ok) {
+            const activeAccountData = await activeAccountResponse.json();
+            
+            // Si un compte actif existe, aller au dashboard, sinon vers la sélection
+            if (activeAccountData.activeAccount) {
+              router.push('/dashboard');
+            } else {
+              router.push('/select-account');
+            }
+          } else {
+            // En cas d'erreur API, rediriger vers sélection par sécurité
+            router.push('/select-account');
+          }
+        } catch (error) {
+          console.error('Erreur lors de la vérification du compte actif:', error);
+          // En cas d'erreur, rediriger vers sélection par sécurité
+          router.push('/select-account');
+        }
+      } else {
+        // Fallback : aller au dashboard pour tout autre rôle
+        router.push('/dashboard');
+      }
+      
       return null;
     } catch (error) {
       return error instanceof Error ? error : new Error('Erreur lors de la connexion');
@@ -63,7 +101,18 @@ export const useAuth = () => {
         throw result;
       }
       setUser(result);
-      router.push('/dashboard');
+      
+      // Les admins et advisors vont directement au dashboard
+      if (result.role === 'DIRECTOR' || result.role === 'ADVISE') {
+        router.push('/dashboard');
+      } else if (result.role === 'CLIENT') {
+        // Un nouveau client n'a jamais de compte actif, rediriger vers sélection
+        router.push('/select-account');
+      } else {
+        // Fallback : aller au dashboard pour tout autre rôle
+        router.push('/dashboard');
+      }
+      
       return null;
     } catch (error) {
       return error instanceof Error ? error : new Error('Erreur lors de l\'inscription');
@@ -77,6 +126,8 @@ export const useAuth = () => {
     try {
       await authService.logout();
       setUser(null);
+      // Nettoyer le localStorage du compte actif
+      localStorage.removeItem('activeAccount');
       router.push('/login');
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);

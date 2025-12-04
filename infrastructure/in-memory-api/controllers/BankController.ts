@@ -33,7 +33,7 @@ export class BankController {
       branchCode: bank?.branchCode?.value || bank?.branchCode || '67890',
       interestRate: typeof bank?.interestRate === 'number' 
         ? bank.interestRate 
-        : (bank?.interestRate?.value || 0.025), // 2.5% par défaut
+        : (bank?.interestRate?.value || 2.5), // 2.5% par défaut (en pourcentage, pas en décimal)
     };
   }
 
