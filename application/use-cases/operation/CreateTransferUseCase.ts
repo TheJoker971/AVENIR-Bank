@@ -7,6 +7,8 @@ import { AccountRepositoryInterface } from "application/repositories/AccountRepo
 
 
 export class CreateTransferUseCase {
+  private static counter = 0;
+  
   constructor(
     private operationRepository: OperationRepositoryInterface,
     private accountRepository: AccountRepositoryInterface
@@ -23,26 +25,14 @@ export class CreateTransferUseCase {
     reason?: string,
     instantTransfer: boolean = false
   ): Promise<OperationEntity | Error> {
-    // Créer les objets de valeur
-    const senderIbanOrError = Iban.create(
-      { value: "FR" } as any, // CountryCode temporaire
-      { value: senderIban.substring(4, 8) } as any, // BankCode temporaire
-      { value: senderIban.substring(8, 12) } as any, // BranchCode temporaire
-      { value: senderIban.substring(12, 23) } as any, // AccountNumber temporaire
-      { value: senderIban.substring(23) } as any // RibKey temporaire
-    );
+    // Créer les objets de valeur à partir des strings IBAN
+    const senderIbanOrError = Iban.fromString(senderIban);
 
     if (senderIbanOrError instanceof Error) {
       return new Error("IBAN expéditeur invalide");
     }
 
-    const receiverIbanOrError = Iban.create(
-      { value: "FR" } as any,
-      { value: receiverIban.substring(4, 8) } as any,
-      { value: receiverIban.substring(8, 12) } as any,
-      { value: receiverIban.substring(12, 23) } as any,
-      { value: receiverIban.substring(23) } as any
-    );
+    const receiverIbanOrError = Iban.fromString(receiverIban);
 
     if (receiverIbanOrError instanceof Error) {
       return new Error("IBAN destinataire invalide");
@@ -79,14 +69,13 @@ export class CreateTransferUseCase {
       return new Error("Fonds insuffisants sur le compte expéditeur");
     }
 
-    // Vérifier que le compte destinataire existe
-    const receiverAccount = await this.accountRepository.findByIban(receiverIbanOrError);
-    if (!receiverAccount) {
-      return new Error("Compte destinataire non trouvé");
-    }
+    // Note: Le compte destinataire peut ne pas exister (virement externe vers bénéficiaire)
+    // La vérification de l'existence du compte destinataire est faite dans le contrôleur si nécessaire
 
-    // Créer l'opération
-    const operationId = Date.now(); // ID temporaire
+    // Créer l'opération avec un ID unique (Date.now() + compteur pour éviter les collisions)
+    const operationId = Date.now() * 1000 + (CreateTransferUseCase.counter++ % 1000);
+    console.log(`🆕 Création d'une nouvelle opération avec ID: ${operationId}`);
+    
     const operationOrError = OperationEntity.create(
       operationId,
       transferDataOrError,
@@ -98,7 +87,9 @@ export class CreateTransferUseCase {
     }
 
     // Sauvegarder l'opération
+    console.log(`💾 Sauvegarde de l'opération ${operationId}...`);
     await this.operationRepository.save(operationOrError);
+    console.log(`✅ Opération ${operationId} sauvegardée avec succès`);
 
     return operationOrError;
   }

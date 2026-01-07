@@ -17,10 +17,14 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "sh -c 'cd infrastructure/in-memory-api && npm run dev &' && sleep 10 && curl -X POST http://localhost:3000/api/seed 2>/dev/null || true && cd infrastructure/nextjs-frontend && npm run dev",
     "api:in-memory": "cd infrastructure/in-memory-api && npm run dev",
     "api:in-memory:build": "cd infrastructure/in-memory-api && npm install",
     "api:prisma": "cd infrastructure/prisma-api && npm run dev",
-    "api:prisma:build": "cd infrastructure/prisma-api && npm install"
+    "api:prisma:build": "cd infrastructure/prisma-api && npm install",
+    "frontend": "cd infrastructure/nextjs-frontend && npm run dev",
+    "frontend:build": "cd infrastructure/nextjs-frontend && npm install",
+    "frontend:start": "cd infrastructure/nextjs-frontend && npm run start"
   },
   "devDependencies": {
     "@types/node": "^24.5.1",

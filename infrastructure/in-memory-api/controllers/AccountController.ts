@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { AccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
+import { OperationRepositoryInterface } from '../../../application/repositories/OperationRepositoryInterface';
 import { CreateAccountUseCase } from '../../../application/use-cases/account/CreateAccountUseCase';
 import { UserRepositoryInMemory } from '../../repositories/in-memory/UserRepositoryInMemory';
 import { requireAuth } from '../middlewares/auth';
@@ -8,33 +9,276 @@ import { requireAccountOwnership, filterUserAccounts, requireCanCreateAccount } 
 export class AccountController {
   private router: Router;
   private createAccountUseCase: CreateAccountUseCase;
+  private userRepository: UserRepositoryInMemory;
 
-  constructor(private accountRepository: AccountRepositoryInterface) {
+  constructor(
+    private accountRepository: AccountRepositoryInterface,
+    private operationRepository?: OperationRepositoryInterface
+  ) {
     this.router = Router();
-    const userRepository = new UserRepositoryInMemory();
-    this.createAccountUseCase = new CreateAccountUseCase(accountRepository, userRepository);
+    this.userRepository = new UserRepositoryInMemory();
+    this.createAccountUseCase = new CreateAccountUseCase(accountRepository, this.userRepository);
     this.setupRoutes();
   }
 
+  private toAccountDto(account: any): any {
+    return {
+      id: account.id || 0,
+      accountNumber: account.accountNumber?.value || account.accountNumber || '',
+      iban: account.iban?.value || account.iban || '',
+      balance: typeof account.balance === 'number' ? account.balance : (account.balance?.value || 0),
+      ownerId: account.ownerId || account.ownerID || 0,
+      createdAt: account.createdAt?.toISOString() || new Date().toISOString(),
+    };
+  }
+
+  private toAccountDtoArray(accounts: any[]): any[] {
+    return accounts.map(account => this.toAccountDto(account));
+  }
+
   private setupRoutes(): void {
+    // GET /api/accounts/:accountId/operations - Récupère les opérations d'un compte
+    this.router.get('/:accountId/operations', requireAuth, async (req: Request, res: Response) => {
+      try {
+        const accountId = parseInt(req.params.accountId);
+        const userId = (req as any).userId;
+
+        // Récupérer le compte
+        const account = await this.accountRepository.findById(accountId);
+        if (!account) {
+          return res.status(404).json({ error: 'Compte non trouvé' });
+        }
+
+        // Vérifier que l'utilisateur est bien le propriétaire du compte
+        if (account.ownerId !== userId) {
+          return res.status(403).json({ error: 'Accès non autorisé à ce compte' });
+        }
+
+        // Récupérer les opérations du compte
+        if (!this.operationRepository) {
+          return res.status(500).json({ error: 'Service d\'opérations non disponible' });
+        }
+
+        const ibanValue = typeof account.iban === 'string' ? account.iban : account.iban?.value;
+        const operations = await this.operationRepository.findByAccountIban(ibanValue);
+        
+        // Convertir les opérations en DTO avec gestion des différents formats
+        const operationsDto = operations.map(op => {
+          try {
+            const transferData = op.getTransferData();
+            
+            // Vérifier si c'est un objet TransferData valide avec les méthodes
+            const hasMethods = typeof transferData.getSenderName === 'function';
+            
+            if (hasMethods) {
+              // Format correct avec méthodes
+              const senderIban = transferData.getSenderIban().value;
+              const receiverIban = transferData.getReceiverIban().value;
+              
+              // Extraire les noms depuis les méthodes getSenderName et getReceiverName
+              const senderNameParts = transferData.getSenderName().split(' ');
+              const receiverNameParts = transferData.getReceiverName().split(' ');
+              
+              // Le format est "Prénom Nom"
+              const senderFirstName = senderNameParts.slice(0, -1).join(' ') || '';
+              const senderLastName = senderNameParts[senderNameParts.length - 1] || '';
+              const receiverFirstName = receiverNameParts.slice(0, -1).join(' ') || '';
+              const receiverLastName = receiverNameParts[receiverNameParts.length - 1] || '';
+              
+              console.log(`📤 [AccountController] Opération ${op.getId()}:`, {
+                senderIban,
+                receiverIban,
+                senderName: transferData.getSenderName(),
+                receiverName: transferData.getReceiverName()
+              });
+              
+              return {
+                id: op.getId(),
+                type: 'TRANSFER',
+                amount: typeof op.getAmount() === 'number' ? op.getAmount() : op.getAmount().value,
+                status: op.getStatus(),
+                date: op.getDate().toISOString(),
+                transferData: {
+                  senderLastName,
+                  senderFirstName,
+                  senderIban,
+                  receiverLastName,
+                  receiverFirstName,
+                  receiverIban,
+                  instantTransfer: transferData.isInstantTransfer(),
+                  reason: transferData.getReason() || '',
+                },
+                completedAt: op.getCompletedAt()?.toISOString(),
+              };
+            } else {
+              // Format legacy du seed (objet simple)
+              const data = transferData as any;
+              return {
+                id: op.getId(),
+                type: 'TRANSFER',
+                amount: typeof op.getAmount() === 'number' ? op.getAmount() : op.getAmount().value,
+                status: op.getStatus(),
+                date: op.getDate().toISOString(),
+                transferData: {
+                  senderLastName: data.senderLastName || '',
+                  senderFirstName: data.senderFirstName || '',
+                  senderIban: data.senderIban?.value || data.senderIban || '',
+                  receiverLastName: data.receiverLastName || '',
+                  receiverFirstName: data.receiverFirstName || '',
+                  receiverIban: data.receiverIban?.value || data.receiverIban || '',
+                  instantTransfer: data.instantTransfer || false,
+                  reason: data.reason || '',
+                },
+                completedAt: op.getCompletedAt()?.toISOString(),
+              };
+            }
+          } catch (error) {
+            console.error(`❌ Erreur lors de la conversion de l'opération ${op.getId()}:`, error);
+            // Retourner un objet par défaut en cas d'erreur
+            return {
+              id: op.getId(),
+              type: 'TRANSFER',
+              amount: 0,
+              status: op.getStatus(),
+              date: op.getDate().toISOString(),
+              transferData: {
+                senderLastName: '',
+                senderFirstName: '',
+                senderIban: op.getSenderIban() || '',
+                receiverLastName: '',
+                receiverFirstName: '',
+                receiverIban: op.getReceiverIban() || '',
+                instantTransfer: false,
+                reason: '',
+              },
+              completedAt: null,
+            };
+          }
+        });
+
+        res.json(operationsDto);
+      } catch (error: any) {
+        console.error('Erreur lors de la récupération des opérations:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération des opérations', details: error.message });
+      }
+    });
+
     // GET /api/accounts - Liste tous les comptes de l'utilisateur authentifié
     this.router.get('/', requireAuth, filterUserAccounts, async (req: Request, res: Response) => {
       try {
         const userId = (req as any).userId;
-        const accounts = await this.accountRepository.findByOwnerId(userId);
-        res.json(accounts);
+        
+        // HACK: Comme AccountEntity n'a pas d'ID, on doit récupérer tous les comptes
+        // et trouver les IDs en parcourant le repository
+        const allAccounts = await this.accountRepository.findAll();
+        const userAccountsWithIds: any[] = [];
+        
+        // Si le repository est in-memory, on peut accéder à la Map interne
+        const repo = this.accountRepository as any;
+        if (repo.accounts && repo.accounts instanceof Map) {
+          for (const [id, account] of repo.accounts.entries()) {
+            if (account.ownerId === userId || account.ownerID === userId) {
+              userAccountsWithIds.push({
+                ...account,
+                id: id // Ajouter l'ID à l'objet
+              });
+            }
+          }
+        } else {
+          // Fallback: retourner sans IDs (problème actuel)
+          const accounts = await this.accountRepository.findByOwnerId(userId);
+          return res.json(this.toAccountDtoArray(accounts));
+        }
+        
+        res.json(this.toAccountDtoArray(userAccountsWithIds));
       } catch (error) {
+        console.error('Erreur dans GET /api/accounts:', error);
         res.status(500).json({ error: 'Erreur lors de la récupération des comptes' });
       }
     });
 
-    // GET /api/accounts/:id - Récupère un compte par ID (seulement si propriétaire)
-    this.router.get('/:id', requireAuth, requireAccountOwnership(this.accountRepository), async (req: Request, res: Response) => {
+    // GET /api/accounts/by-owner/:ownerId - Récupère les comptes d'un propriétaire spécifique
+    // IMPORTANT: Cette route doit être définie AVANT /:id pour éviter les conflits
+    this.router.get('/by-owner/:ownerId', requireAuth, async (req: Request, res: Response) => {
       try {
-        const account = (req as any).account;
-        res.json(account);
-      } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la récupération du compte' });
+        const userId = (req as any).userId;
+        const userRole = (req as any).userRole;
+        const ownerId = parseInt(req.params.ownerId);
+
+        if (isNaN(ownerId)) {
+          return res.status(400).json({ error: 'ID du propriétaire invalide' });
+        }
+
+        // Vérifier les permissions : un client ne peut voir que ses propres comptes
+        // Les conseillers et directeurs peuvent voir les comptes de n'importe quel client
+        if (userRole === 'CLIENT' && ownerId !== userId) {
+          return res.status(403).json({ error: 'Vous ne pouvez voir que vos propres comptes' });
+        }
+
+        const accounts = await this.accountRepository.findByOwnerId(ownerId);
+        res.json(this.toAccountDtoArray(accounts));
+      } catch (error: any) {
+        res.status(500).json({ error: 'Erreur lors de la récupération des comptes', details: error.message });
+      }
+    });
+
+    // GET /api/accounts/owner-by-iban/:iban - Récupère le propriétaire d'un IBAN (nom et prénom)
+    this.router.get('/owner-by-iban/:iban', async (req: Request, res: Response) => {
+      try {
+        const { Iban } = await import('../../../domain/values/Iban');
+        const CountryCode = await import('../../../domain/values/CountryCode');
+        const BankCode = await import('../../../domain/values/BankCode');
+        const BranchCode = await import('../../../domain/values/BranchCode');
+        const AccountNumber = await import('../../../domain/values/AccountNumber');
+        const RibKey = await import('../../../domain/values/RibKey');
+        
+        const ibanStr = req.params.iban.replace(/\s/g, '');
+        if (ibanStr.length !== 27 || !ibanStr.startsWith('FR')) {
+          return res.status(400).json({ error: 'Format IBAN invalide' });
+        }
+        
+        const countryCode = ibanStr.substring(0, 2) as any;
+        const bankCodeStr = ibanStr.substring(4, 9);
+        const branchCodeStr = ibanStr.substring(9, 14);
+        const accountNumberStr = ibanStr.substring(14, 25);
+        const ribKeyStr = ibanStr.substring(25, 27);
+        
+        const bankCodeOrError = BankCode.BankCode.create(bankCodeStr);
+        const branchCodeOrError = BranchCode.BranchCode.create(branchCodeStr);
+        const accountNumberOrError = AccountNumber.AccountNumber.create(accountNumberStr);
+        const ribKeyOrError = RibKey.RibKey.create(ribKeyStr);
+        
+        if (bankCodeOrError instanceof Error) return res.status(400).json({ error: bankCodeOrError.message });
+        if (branchCodeOrError instanceof Error) return res.status(400).json({ error: branchCodeOrError.message });
+        if (accountNumberOrError instanceof Error) return res.status(400).json({ error: accountNumberOrError.message });
+        if (ribKeyOrError instanceof Error) return res.status(400).json({ error: ribKeyOrError.message });
+        
+        const iban = Iban.create(countryCode, bankCodeOrError, branchCodeOrError, accountNumberOrError, ribKeyOrError);
+        
+        if (iban instanceof Error) {
+          return res.status(400).json({ error: iban.message });
+        }
+        
+        const account = await this.accountRepository.findByIban(iban);
+        
+        if (!account) {
+          return res.status(404).json({ error: 'Compte non trouvé' });
+        }
+
+        // Récupérer le propriétaire
+        const owner = await this.userRepository.findById(account.ownerId);
+        
+        if (!owner || owner instanceof Error) {
+          return res.status(404).json({ error: 'Propriétaire non trouvé' });
+        }
+        
+        res.json({
+          firstname: owner.firstname,
+          lastname: owner.lastname,
+          iban: ibanStr
+        });
+      } catch (error: any) {
+        res.status(500).json({ error: 'Erreur lors de la récupération du propriétaire', details: error.message });
       }
     });
 
@@ -89,19 +333,41 @@ export class AccountController {
           return res.status(403).json({ error: 'Accès interdit' });
         }
         
-        res.json(account);
+        res.json(this.toAccountDto(account));
       } catch (error: any) {
         res.status(500).json({ error: 'Erreur lors de la récupération du compte', details: error.message });
+      }
+    });
+
+    // GET /api/accounts/:id - Récupère un compte par ID (seulement si propriétaire)
+    // IMPORTANT: Cette route doit être définie APRÈS les routes spécifiques (/by-owner, /by-iban)
+    this.router.get('/:id', requireAuth, requireAccountOwnership(this.accountRepository), async (req: Request, res: Response) => {
+      try {
+        const account = (req as any).account;
+        res.json(this.toAccountDto(account));
+      } catch (error) {
+        res.status(500).json({ error: 'Erreur lors de la récupération du compte' });
       }
     });
 
     // POST /api/accounts - Crée un nouveau compte (avec vérification de permissions)
     this.router.post('/', requireAuth, requireCanCreateAccount(), async (req: Request, res: Response) => {
       try {
-        const { ownerId, countryCode, bankCode, branchCode, ribKey } = req.body;
+        const userId = (req as any).userId;
+        const userRole = (req as any).userRole;
+        
+        // Utiliser l'ownerId fourni ou l'ID de l'utilisateur connecté (pour les clients)
+        const ownerId = req.body.ownerId || userId;
+        
+        // Valeurs par défaut pour la banque AVENIR
+        const countryCode = req.body.countryCode || 'FR';
+        const bankCode = req.body.bankCode || '12345';
+        const branchCode = req.body.branchCode || '67890';
+        const ribKey = req.body.ribKey || '12';
 
-        if (!ownerId || !countryCode || !bankCode || !branchCode || !ribKey) {
-          return res.status(400).json({ error: 'Paramètres manquants' });
+        // Si c'est un client, il ne peut créer un compte que pour lui-même
+        if (userRole === 'CLIENT' && ownerId !== userId) {
+          return res.status(403).json({ error: 'Vous ne pouvez créer un compte que pour vous-même' });
         }
 
         const account = await this.createAccountUseCase.execute(
@@ -116,9 +382,10 @@ export class AccountController {
           return res.status(400).json({ error: account.message });
         }
 
-        res.status(201).json(account);
-      } catch (error) {
-        res.status(500).json({ error: 'Erreur lors de la création du compte' });
+        res.status(201).json(this.toAccountDto(account));
+      } catch (error: any) {
+        console.error('Erreur lors de la création du compte:', error);
+        res.status(500).json({ error: 'Erreur lors de la création du compte', details: error.message });
       }
     });
 

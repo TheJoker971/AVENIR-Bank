@@ -33,6 +33,16 @@ export class Amount {
     return new Amount(this.value * factor);
   }
 
+  public divide(divisor: number): Amount | AmountInvalidError {
+    if (divisor === 0) {
+      return new AmountInvalidError("Division par zéro impossible");
+    }
+    if (!Number.isFinite(divisor)) {
+      return new AmountInvalidError("Le diviseur doit être un nombre valide");
+    }
+    return new Amount(this.value / divisor);
+  }
+
   public isGreaterThan(other: Amount): boolean {
     return this.value > other.value;
   }

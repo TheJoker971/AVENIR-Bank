@@ -3,6 +3,7 @@ import { InterestRateError } from "domain/errors/InterestRateError";
 export type interestRateType = number;
 
 export class InterestRate {
+    private static readonly DEFAULT_RATE = 2.5;
 
     private constructor(public value:interestRateType){
     }
@@ -12,6 +13,10 @@ export class InterestRate {
             return new InterestRateError("Interest rate must be between 0 and 100");
         }
         return new InterestRate(value);
+    }
+
+    public static createDefault(): InterestRate {
+        return new InterestRate(InterestRate.DEFAULT_RATE);
     }
 
 }

@@ -3,6 +3,10 @@ import { AccountRepositoryInterface } from "application/repositories/AccountRepo
 import { UserRepositoryInterface } from "application/repositories/UserRepositoryInterface";
 import { BankCode } from "domain/values/BankCode";
 import { BranchCode } from "domain/values/BranchCode";
+import { AccountNumber } from "domain/values/AccountNumber";
+import { Iban } from "domain/values/Iban";
+import { RibKey } from "domain/values/RibKey";
+import { Amount } from "domain/values/Amount";
 
 export class CreateAccountUseCase {
   constructor(
@@ -30,14 +34,56 @@ export class CreateAccountUseCase {
     const branchCodeOrError = BranchCode.create(branchCode);
     if (branchCodeOrError instanceof Error) return branchCodeOrError;
 
-    // Créer le compte
+    const ribKeyOrError = RibKey.create(ribKey);
+    if (ribKeyOrError instanceof Error) return ribKeyOrError;
+
+    // Générer un numéro de compte unique
+    let accountNumber: AccountNumber;
+    let iban: Iban;
+    let attempts = 0;
+    const maxAttempts = 100; // Limite de sécurité pour éviter une boucle infinie
+
+    do {
+      // Générer un nouveau numéro de compte
+      accountNumber = AccountNumber.generateAccountNumber();
+
+      // Créer un IBAN temporaire pour vérifier l'unicité
+      const tempIbanOrError = Iban.create(
+        countryCode as any,
+        bankCodeOrError,
+        branchCodeOrError,
+        accountNumber,
+        ribKeyOrError
+      );
+
+      if (tempIbanOrError instanceof Error) {
+        return tempIbanOrError;
+      }
+
+      // Vérifier si cet IBAN existe déjà
+      const existingAccount = await this.accountRepository.findByIban(tempIbanOrError);
+      
+      if (!existingAccount) {
+        // Le numéro de compte est unique, on peut l'utiliser
+        iban = tempIbanOrError;
+        break;
+      }
+
+      attempts++;
+      if (attempts >= maxAttempts) {
+        return new Error("Impossible de générer un numéro de compte unique après plusieurs tentatives");
+      }
+    } while (true);
+
+    // Créer le compte avec le numéro unique en utilisant la méthode statique create
     const accountOrError = AccountEntity.create(
-      countryCode as any, // CountryCode est un type, pas une classe
+      countryCode as any,
       bankCodeOrError,
       branchCodeOrError,
       ribKey,
-      0, // balance par défaut
-      ownerId
+      0,
+      ownerId,
+      accountNumber // Passer le numéro de compte déjà généré et vérifié
     );
 
     if (accountOrError instanceof Error) {

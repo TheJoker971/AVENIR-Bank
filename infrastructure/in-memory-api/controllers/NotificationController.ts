@@ -11,13 +11,28 @@ export class NotificationController {
     this.setupRoutes();
   }
 
+  private toNotificationDto(notification: any): any {
+    return {
+      id: notification.id,
+      userId: notification.userId || notification.recipientId || 0,
+      title: notification.title || '',
+      message: notification.message || '',
+      read: notification.read || notification.isRead || false,
+      createdAt: notification.createdAt?.toISOString() || new Date().toISOString(),
+    };
+  }
+
+  private toNotificationDtoArray(notifications: any[]): any[] {
+    return notifications.map(notification => this.toNotificationDto(notification));
+  }
+
   private setupRoutes(): void {
     // GET /api/notifications - Liste les notifications de l'utilisateur authentifié
     this.router.get('/', requireAuth, filterUserNotifications, async (req: Request, res: Response) => {
       try {
         const userId = (req as any).userId;
         const notifications = await this.notificationRepository.findByRecipientId(userId);
-        res.json(notifications);
+        res.json(this.toNotificationDtoArray(notifications));
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des notifications' });
       }
@@ -27,9 +42,21 @@ export class NotificationController {
     this.router.get('/:id', requireAuth, requireNotificationAccess(this.notificationRepository), async (req: Request, res: Response) => {
       try {
         const notification = (req as any).notification;
-        res.json(notification);
+        res.json(this.toNotificationDto(notification));
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération de la notification' });
+      }
+    });
+
+    // PUT /api/notifications/:id/read - Marque une notification comme lue
+    this.router.put('/:id/read', requireAuth, requireNotificationAccess(this.notificationRepository), async (req: Request, res: Response) => {
+      try {
+        const notification = (req as any).notification;
+        const markedAsRead = notification.markAsRead();
+        await this.notificationRepository.update(markedAsRead);
+        res.json(this.toNotificationDto(markedAsRead));
+      } catch (error: any) {
+        res.status(500).json({ error: 'Erreur lors de la mise à jour de la notification', details: error.message });
       }
     });
   }

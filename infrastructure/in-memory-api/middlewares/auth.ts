@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from 'express';
  */
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   const userId = req.headers['x-user-id'];
+  const userRole = req.headers['x-user-role'];
 
   if (!userId) {
     return res.status(401).json({ 
@@ -24,6 +25,10 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
 
   // Ajouter l'ID de l'utilisateur authentifié à la requête
   (req as any).userId = userIdNumber;
+  // Ajouter le rôle de l'utilisateur à la requête si disponible
+  if (userRole) {
+    (req as any).userRole = userRole;
+  }
   next();
 };
 
