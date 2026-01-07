@@ -1,6 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { StockRepositoryInterface } from '../../../application/repositories/StockRepositoryInterface';
+import { OrderRepositoryInterface } from '../../../application/repositories/OrderRepositoryInterface';
+import { StockHoldingRepositoryInterface } from '../../../application/repositories/StockHoldingRepositoryInterface';
 import { CreateStockUseCase } from '../../../application/use-cases/stock/CreateStockUseCase';
+import { UpdateStockUseCase } from '../../../application/use-cases/stock/UpdateStockUseCase';
+import { DeleteStockUseCase } from '../../../application/use-cases/stock/DeleteStockUseCase';
 import { requireAuth, requireRole } from '../middlewares/auth';
 import { SocketServer } from '../socket/socketServer';
 import { StockSymbol } from '../../../domain/values/StockSymbol';
@@ -8,13 +12,25 @@ import { StockSymbol } from '../../../domain/values/StockSymbol';
 export class StockController {
   private router: Router;
   private createStockUseCase: CreateStockUseCase;
+  private updateStockUseCase: UpdateStockUseCase;
+  private deleteStockUseCase: DeleteStockUseCase;
 
   constructor(
     private stockRepository: StockRepositoryInterface,
-    private socketServer: SocketServer
+    private socketServer: SocketServer,
+    private orderRepository?: OrderRepositoryInterface,
+    private stockHoldingRepository?: StockHoldingRepositoryInterface
   ) {
     this.router = Router();
     this.createStockUseCase = new CreateStockUseCase(stockRepository);
+    this.updateStockUseCase = new UpdateStockUseCase(stockRepository);
+    if (orderRepository && stockHoldingRepository) {
+      this.deleteStockUseCase = new DeleteStockUseCase(
+        stockRepository,
+        orderRepository,
+        stockHoldingRepository
+      );
+    }
     this.setupRoutes();
   }
 
@@ -123,6 +139,89 @@ export class StockController {
         res.status(500).json({ 
           error: 'Erreur lors de la création de l\'action',
           details: error.message 
+        });
+      }
+    });
+
+    // PUT /api/stocks/:symbol - Modifie une action (DIRECTOR uniquement)
+    this.router.put('/:symbol', requireAuth, requireRole('DIRECTOR'), async (req: Request, res: Response) => {
+      try {
+        const currentSymbol = req.params.symbol.toUpperCase();
+        const { name, symbol: newSymbol, totalShares } = req.body;
+
+        // Au moins un champ doit être fourni
+        if (!name && !newSymbol && totalShares === undefined) {
+          return res.status(400).json({
+            error: 'Aucune modification fournie',
+            message: 'Veuillez fournir au moins un champ à modifier (name, symbol, ou totalShares)'
+          });
+        }
+
+        const updatedStock = await this.updateStockUseCase.execute(
+          currentSymbol,
+          name,
+          newSymbol ? newSymbol.toUpperCase() : undefined,
+          totalShares ? parseInt(totalShares) : undefined
+        );
+
+        if (updatedStock instanceof Error) {
+          return res.status(400).json({ error: updatedStock.message });
+        }
+
+        // Émettre un événement WebSocket pour notifier les clients
+        try {
+          this.socketServer.getIO().emit('stockUpdated', {
+            symbol: updatedStock.getSymbol().value,
+            currentPrice: updatedStock.getCurrentPrice().value,
+            availableShares: updatedStock.getAvailableShares(),
+            totalShares: updatedStock.getTotalShares(),
+            name: updatedStock.getName()
+          });
+        } catch (wsError) {
+          console.error('Erreur lors de l\'émission WebSocket:', wsError);
+        }
+
+        res.json(this.toStockDto(updatedStock));
+      } catch (error: any) {
+        console.error('Erreur lors de la modification de l\'action:', error);
+        res.status(500).json({
+          error: 'Erreur lors de la modification de l\'action',
+          details: error.message
+        });
+      }
+    });
+
+    // DELETE /api/stocks/:symbol - Supprime une action (DIRECTOR uniquement)
+    this.router.delete('/:symbol', requireAuth, requireRole('DIRECTOR'), async (req: Request, res: Response) => {
+      try {
+        const symbol = req.params.symbol.toUpperCase();
+
+        if (!this.deleteStockUseCase) {
+          return res.status(500).json({
+            error: 'Service de suppression non disponible',
+            message: 'Le contrôleur n\'a pas été initialisé avec les dépendances nécessaires'
+          });
+        }
+
+        const result = await this.deleteStockUseCase.execute(symbol);
+
+        if (result instanceof Error) {
+          return res.status(400).json({ error: result.message });
+        }
+
+        // Émettre un événement WebSocket pour notifier les clients
+        try {
+          this.socketServer.getIO().emit('stockDeleted', { symbol });
+        } catch (wsError) {
+          console.error('Erreur lors de l\'émission WebSocket:', wsError);
+        }
+
+        res.json(result);
+      } catch (error: any) {
+        console.error('Erreur lors de la suppression de l\'action:', error);
+        res.status(500).json({
+          error: 'Erreur lors de la suppression de l\'action',
+          details: error.message
         });
       }
     });

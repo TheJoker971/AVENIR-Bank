@@ -82,8 +82,6 @@ export const useUnassignedMessages = () => {
 
   useEffect(() => {
     loadMessages();
-    const interval = setInterval(loadMessages, 5000); // Rafraîchir toutes les 5 secondes
-    return () => clearInterval(interval);
   }, []);
 
   const assignMessage = async (messageId: number, advisorId: number) => {

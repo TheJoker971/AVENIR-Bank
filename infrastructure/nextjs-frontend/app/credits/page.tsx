@@ -70,7 +70,14 @@ export default function CreditsPage() {
   };
 
   if (authLoading) {
-    return <div className="p-8 text-center text-pearl">Chargement...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-sky-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-slate-600">Chargement...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAuthenticated || user?.role !== 'ADVISE') {
@@ -78,209 +85,232 @@ export default function CreditsPage() {
   }
 
   return (
-    <div className="p-8 text-pearl">
-      <div className="mb-8 flex justify-between items-center">
-        <h1 className="font-display text-4xl font-bold text-gold">Gestion des crédits</h1>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn-premium"
-        >
-          + Attribuer un crédit
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">💳 Gestion des crédits</h1>
+            <p className="text-slate-600">Attribuez et gérez les crédits de vos clients</p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-6 py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl font-medium hover:from-sky-600 hover:to-blue-700 transition-all duration-200 shadow-sm flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Attribuer un crédit
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
+            {error}
+          </div>
+        )}
+
+        {loading && credits.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-2 border-sky-500 border-t-transparent mx-auto mb-4"></div>
+            <p className="text-slate-600">Chargement...</p>
+          </div>
+        ) : credits.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <svg className="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            <p className="text-slate-600 mb-4">Aucun crédit attribué</p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl font-medium hover:from-sky-600 hover:to-blue-700 transition-all duration-200 shadow-sm inline-flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Attribuer le premier crédit
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {credits.map((credit) => (
+              <div key={credit.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow duration-200">
+                <div className="mb-4">
+                  <h3 className="text-xl font-semibold text-slate-900">Crédit #{credit.id}</h3>
+                  <p className="text-sm text-slate-500">Client ID: {credit.clientId}</p>
+                </div>
+                <div className="space-y-2 mb-6">
+                  <p className="text-sm text-slate-700">
+                    <span className="text-slate-500">Montant:</span> <span className="font-semibold">{formatAmount(credit.principalAmount)}</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    <span className="text-slate-500">Taux annuel:</span> <span className="font-semibold">{(credit.annualInterestRate * 100).toFixed(2)}%</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    <span className="text-slate-500">Assurance:</span> <span className="font-semibold">{(credit.insuranceRate * 100).toFixed(2)}%</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    <span className="text-slate-500">Mensualité:</span> <span className="font-semibold text-sky-600">{formatAmount(credit.monthlyPayment)}</span>
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    <span className="text-slate-500">Restant:</span> <span className="font-semibold text-sky-600">{formatAmount(credit.remainingBalance)}</span>
+                  </p>
+                  <p className="text-sm text-slate-700 flex items-center gap-2">
+                    <span className="text-slate-500">Statut:</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      credit.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                      credit.status === 'PAID_OFF' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                      'bg-red-100 text-red-700 border border-red-200'
+                    }`}>
+                      {credit.status}
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Prochain paiement: {formatDate(credit.nextPaymentDate)}
+                  </p>
+                </div>
+                {credit.status === 'ACTIVE' && (
+                  <button
+                    onClick={() => {
+                      setSelectedCredit(credit.id);
+                      setShowPaymentModal(true);
+                    }}
+                    className="w-full px-4 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl font-medium hover:from-sky-600 hover:to-blue-700 transition-all duration-200 shadow-sm"
+                  >
+                    Traiter un paiement
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {error && (
-        <div className="mb-6 bg-red-900/20 border border-red-700 text-red-400 px-6 py-4 rounded-xl">
-          {error}
-        </div>
-      )}
-
-      {loading && credits.length === 0 ? (
-        <div className="text-center py-8 text-pearl/60">Chargement...</div>
-      ) : credits.length === 0 ? (
-        <div className="text-center py-12 glass rounded-lg border border-gold/20">
-          <p className="text-pearl/60">Aucun crédit attribué</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {credits.map((credit) => (
-            <div key={credit.id} className="luxury-card rounded-xl p-6">
-              <div className="mb-4">
-                <h3 className="text-xl font-semibold text-gold">Crédit #{credit.id}</h3>
-                <p className="text-sm text-pearl/60">Client ID: {credit.clientId}</p>
-              </div>
-              <div className="space-y-2 mb-6">
-                <p className="text-sm text-pearl">
-                  <span className="text-pearl/60">Montant:</span> <span className="font-semibold">{formatAmount(credit.principalAmount)}</span>
-                </p>
-                <p className="text-sm text-pearl">
-                  <span className="text-pearl/60">Taux annuel:</span> <span className="font-semibold">{(credit.annualInterestRate * 100).toFixed(2)}%</span>
-                </p>
-                <p className="text-sm text-pearl">
-                  <span className="text-pearl/60">Assurance:</span> <span className="font-semibold">{(credit.insuranceRate * 100).toFixed(2)}%</span>
-                </p>
-                <p className="text-sm text-pearl">
-                  <span className="text-pearl/60">Mensualité:</span> <span className="font-semibold text-gold">{formatAmount(credit.monthlyPayment)}</span>
-                </p>
-                <p className="text-sm text-pearl">
-                  <span className="text-pearl/60">Restant:</span> <span className="font-semibold text-gold">{formatAmount(credit.remainingBalance)}</span>
-                </p>
-                <p className="text-sm text-pearl">
-                  <span className="text-pearl/60">Statut:</span>
-                  <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                    credit.status === 'ACTIVE' ? 'bg-green-900/30 text-green-400 border border-green-500/30' :
-                    credit.status === 'PAID_OFF' ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30' :
-                    'bg-red-900/30 text-red-400 border border-red-500/30'
-                  }`}>
-                    {credit.status}
-                  </span>
-                </p>
-                <p className="text-xs text-pearl/40 mt-2">
-                  Prochain paiement: {formatDate(credit.nextPaymentDate)}
-                </p>
-              </div>
-              {credit.status === 'ACTIVE' && (
-                <button
-                  onClick={() => {
-                    setSelectedCredit(credit.id);
-                    setShowPaymentModal(true);
-                  }}
-                  className="btn-premium w-full"
-                >
-                  Traiter un paiement
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Modal création crédit */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="glass border border-gold/30 rounded-xl p-8 max-w-md w-full mx-4">
-            <h2 className="font-display text-3xl font-bold mb-6 text-gold text-center">Attribuer un crédit</h2>
-            <form onSubmit={handleCreateCredit}>
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gold mb-2">ID Client</label>
-                  <input
-                    type="number"
-                    value={formData.userId}
-                    onChange={(e) => setFormData({...formData, userId: e.target.value})}
-                    className="input-premium w-full"
-                    placeholder="ID du client"
-                    required
-                  />
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 border border-slate-200">
+              <h2 className="text-2xl font-bold mb-6 text-slate-900 text-center">💰 Attribuer un crédit</h2>
+              <form onSubmit={handleCreateCredit}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">ID Client</label>
+                    <input
+                      type="number"
+                      value={formData.userId}
+                      onChange={(e) => setFormData({...formData, userId: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                      placeholder="ID du client"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Montant (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Taux annuel (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.annualRate}
+                      onChange={(e) => setFormData({...formData, annualRate: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Assurance (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.insurance}
+                      onChange={(e) => setFormData({...formData, insurance: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Durée (mois)</label>
+                    <input
+                      type="number"
+                      value={formData.durationMonths}
+                      onChange={(e) => setFormData({...formData, durationMonths: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gold mb-2">Montant (€)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                    className="input-premium w-full"
-                    required
-                  />
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-6 py-2.5 text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-slate-400 rounded-xl transition-all duration-200 font-medium"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl font-medium hover:from-sky-600 hover:to-blue-700 transition-all duration-200 shadow-sm"
+                  >
+                    Créer
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gold mb-2">Taux annuel (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.annualRate}
-                    onChange={(e) => setFormData({...formData, annualRate: e.target.value})}
-                    className="input-premium w-full"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gold mb-2">Assurance (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.insurance}
-                    onChange={(e) => setFormData({...formData, insurance: e.target.value})}
-                    className="input-premium w-full"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gold mb-2">Durée (mois)</label>
-                  <input
-                    type="number"
-                    value={formData.durationMonths}
-                    onChange={(e) => setFormData({...formData, durationMonths: e.target.value})}
-                    className="input-premium w-full"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="btn-premium"
-                >
-                  Créer
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Modal traitement paiement */}
-      {showPaymentModal && selectedCredit && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="glass border border-gold/30 rounded-xl p-8 max-w-md w-full mx-4">
-            <h2 className="font-display text-3xl font-bold mb-6 text-gold text-center">Traiter un paiement</h2>
-            <form onSubmit={handleProcessPayment}>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gold mb-2">Compte à débiter</label>
-                <select
-                  value={paymentAccountId}
-                  onChange={(e) => setPaymentAccountId(e.target.value)}
-                  className="input-premium w-full"
-                  required
-                >
-                  <option value="">Sélectionner un compte</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.accountNumber} - {formatAmount(account.balance)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    setSelectedCredit(null);
-                  }}
-                  className="px-6 py-2 text-pearl/70 hover:text-pearl border border-pearl/20 hover:border-gold/40 rounded-lg transition-all duration-300 hover:bg-gold/5"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="btn-premium"
-                >
-                  Traiter
-                </button>
-              </div>
-            </form>
+        {showPaymentModal && selectedCredit && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 border border-slate-200">
+              <h2 className="text-2xl font-bold mb-6 text-slate-900 text-center">💳 Traiter un paiement</h2>
+              <form onSubmit={handleProcessPayment}>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Compte à débiter</label>
+                  <select
+                    value={paymentAccountId}
+                    onChange={(e) => setPaymentAccountId(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
+                    required
+                  >
+                    <option value="">Sélectionner un compte</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.accountNumber} - {formatAmount(account.balance)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPaymentModal(false);
+                      setSelectedCredit(null);
+                    }}
+                    className="px-6 py-2.5 text-slate-700 hover:text-slate-900 border border-slate-300 hover:border-slate-400 rounded-xl transition-all duration-200 font-medium"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl font-medium hover:from-sky-600 hover:to-blue-700 transition-all duration-200 shadow-sm"
+                  >
+                    Traiter
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }

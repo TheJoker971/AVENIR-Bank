@@ -105,4 +105,36 @@ export class StockEntity {
   public calculateOrderValue(quantity: number): Amount {
     return this.currentPrice.multiply(quantity);
   }
+
+  public updateInfo(newName: string, newSymbol: StockSymbol, newTotalShares: number): StockEntity | Error {
+    if (newTotalShares <= 0) {
+      return new Error("Le nombre total d'actions doit être positif");
+    }
+
+    if (!newName || newName.trim().length === 0) {
+      return new Error("Le nom de l'action ne peut pas être vide");
+    }
+
+    // Calculer le nombre d'actions disponibles en fonction du nouveau total
+    const soldShares = this.totalShares - this.availableShares;
+    const newAvailableShares = newTotalShares - soldShares;
+
+    if (newAvailableShares < 0) {
+      return new Error("Le nouveau total d'actions est inférieur au nombre d'actions déjà vendues");
+    }
+
+    return new StockEntity(
+      this.id,
+      newSymbol,
+      newName.trim(),
+      this.currentPrice,
+      newTotalShares,
+      newAvailableShares,
+      this.createdAt
+    );
+  }
+
+  public getId(): number {
+    return this.id;
+  }
 }

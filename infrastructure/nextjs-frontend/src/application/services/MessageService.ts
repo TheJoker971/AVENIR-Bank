@@ -9,11 +9,17 @@ export interface SendMessageData {
   receiverId?: number; // Optionnel pour les clients (sera assigné automatiquement)
 }
 
+export interface TransferConversationData {
+  clientId: number;
+  toAdviserId: number;
+}
+
 export interface MessageServiceInterface {
   sendMessage(data: SendMessageData): Promise<MessageDto | Error>;
   getMessages(userId: number): Promise<MessageDto[] | Error>;
   getUnassignedMessages(): Promise<MessageDto[] | Error>;
   assignMessage(messageId: number, advisorId: number): Promise<void | Error>;
   transferMessage(messageId: number, fromAdvisorId: number, toAdvisorId: number): Promise<void | Error>;
+  transferConversation(data: TransferConversationData): Promise<{ success: true; message: string } | Error>;
 }
 

@@ -1,20 +1,34 @@
 import { Router, Request, Response } from 'express';
 import { MessageRepositoryInterface } from '../../../application/repositories/MessageRepositoryInterface';
+import { NotificationRepositoryInterface } from '../../../application/repositories/NotificationRepositoryInterface';
 import { requireAuth } from '../middlewares/auth';
 import { requireMessageAccess, requireCanSendMessage, filterUserMessages } from '../middlewares/messageAuth';
 import { MessageEntity } from '../../../domain/entities/MessageEntity';
 import { UserRepositoryInMemory } from '../../repositories/in-memory/UserRepositoryInMemory';
+import { NotificationRepositoryInMemory } from '../../repositories/in-memory/NotificationRepositoryInMemory';
 import { AssignMessageToAdvisorUseCase } from '../../../application/use-cases/messaging/AssignMessageToAdvisorUseCase';
+import { TransferConversationUseCase } from '../../../application/use-cases/messaging/TransferConversationUseCase';
 
 export class MessageController {
   private router: Router;
   private assignMessageUseCase: AssignMessageToAdvisorUseCase;
+  private transferConversationUseCase: TransferConversationUseCase;
   private userRepository: UserRepositoryInMemory;
+  private notificationRepository: NotificationRepositoryInterface;
 
-  constructor(private messageRepository: MessageRepositoryInterface) {
+  constructor(
+    private messageRepository: MessageRepositoryInterface,
+    notificationRepository?: NotificationRepositoryInterface
+  ) {
     this.router = Router();
     this.userRepository = new UserRepositoryInMemory();
+    this.notificationRepository = notificationRepository || new NotificationRepositoryInMemory();
     this.assignMessageUseCase = new AssignMessageToAdvisorUseCase(messageRepository, this.userRepository);
+    this.transferConversationUseCase = new TransferConversationUseCase(
+      messageRepository,
+      this.userRepository,
+      this.notificationRepository
+    );
     this.setupRoutes();
   }
 
@@ -33,6 +47,26 @@ export class MessageController {
   }
 
   private setupRoutes(): void {
+    // GET /api/messages/unassigned - Récupère les messages non assignés (conseillers uniquement)
+    // IMPORTANT: Cette route doit être AVANT /:id pour éviter que "unassigned" soit interprété comme un ID
+    this.router.get('/unassigned', requireAuth, async (req: Request, res: Response) => {
+      try {
+        const userRole = (req as any).userRole;
+        
+        if (userRole !== 'ADVISE') {
+          return res.status(403).json({ error: 'Accès interdit' });
+        }
+
+        const messages = await this.messageRepository.findUnassignedMessages();
+        res.json(this.toMessageDtoArray(messages));
+      } catch (error: any) {
+        res.status(500).json({ 
+          error: 'Erreur lors de la récupération des messages non assignés',
+          details: error.message 
+        });
+      }
+    });
+
     // GET /api/messages - Liste les messages de l'utilisateur authentifié
     this.router.get('/', requireAuth, filterUserMessages, async (req: Request, res: Response) => {
       try {
@@ -43,56 +77,23 @@ export class MessageController {
         const sentMessages = await this.messageRepository.findBySenderId(userId);
         const receivedMessages = await this.messageRepository.findByReceiverId(userId);
         
-        // Combiner les deux listes et dédoublonner si nécessaire
+        // Combiner les deux listes
         const allMessages = [...sentMessages, ...receivedMessages];
         
-        // Pour les clients, ne montrer que les messages avec leur conseiller attitré
-        // Pour les conseillers, montrer tous les messages
-        let filteredMessages = allMessages;
+        // Dédoublonner par ID
+        const uniqueMessages = Array.from(
+          new Map(allMessages.map(m => [m.id, m])).values()
+        );
         
-        if (userRole === 'CLIENT') {
-          // Trouver le conseiller attitré du client
-          // Un conseiller est attitré si un message a été assigné avec receiverId = advisorId
-          const advisorMessages = await this.messageRepository.findByReceiverId(userId);
-          const clientSentMessages = await this.messageRepository.findBySenderId(userId);
-          
-          // Trouver les conseillers qui ont répondu ou ont été assignés
-          const advisorIds = new Set<number>();
-          for (const msg of clientSentMessages) {
-            if (msg.receiverId !== 0) {
-              const receiver = await this.userRepository.findById(msg.receiverId);
-              if (receiver && !(receiver instanceof Error) && receiver.role.value === 'ADVISE') {
-                // Vérifier si ce conseiller a été assigné
-                if ('findByAdvisorId' in this.messageRepository) {
-                  const assignedMessages = await (this.messageRepository as any).findByAdvisorId(msg.receiverId);
-                  if (assignedMessages.some((m: any) => m.senderId === userId)) {
-                    advisorIds.add(msg.receiverId);
-                  }
-                }
-              }
-            }
-          }
-          
-          // Si le client a un conseiller attitré, ne montrer que les messages avec lui
-          if (advisorIds.size > 0) {
-            const firstAdvisorId = Array.from(advisorIds)[0];
-            filteredMessages = allMessages.filter(m => 
-              (m.senderId === userId && m.receiverId === firstAdvisorId) ||
-              (m.receiverId === userId && m.senderId === firstAdvisorId) ||
-              (m.senderId === userId && m.receiverId === 0) // Messages non assignés envoyés par le client
-            );
-          } else {
-            // Pas de conseiller attitré, montrer seulement les messages non assignés du client
-            filteredMessages = allMessages.filter(m => 
-              m.senderId === userId && (m.receiverId === 0 || m.receiverId === userId)
-            );
-          }
-        }
+        // Trier par date croissante (plus anciens en premier, plus récents en bas)
+        uniqueMessages.sort((a, b) => a.date.getTime() - b.date.getTime());
         
-        // Trier par date décroissante (plus récents en premier)
-        filteredMessages.sort((a, b) => b.date.getTime() - a.date.getTime());
+        console.log(`📨 [MessageController] Messages pour user ${userId} (${userRole}):`, uniqueMessages.length);
+        uniqueMessages.forEach(m => {
+          console.log(`  - Message ${m.id}: de ${m.senderId} vers ${m.receiverId} - "${m.message.substring(0, 30)}..."`);
+        });
         
-        res.json(this.toMessageDtoArray(filteredMessages));
+        res.json(this.toMessageDtoArray(uniqueMessages));
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des messages' });
       }
@@ -128,11 +129,16 @@ export class MessageController {
 
         let finalReceiverId: number;
 
-        // Si c'est un client, il doit envoyer au conseiller attitré ou créer un nouveau message non assigné
+        // Si c'est un client, trouver son conseiller attitré ou mettre receiverId à 1 (premier conseiller par défaut)
         if (userRole === 'CLIENT') {
-          // Pour un nouveau message, on met receiverId à 0 pour indiquer qu'il n'est pas encore assigné
-          // Les conseillers pourront ensuite l'assigner
-          finalReceiverId = 0; // 0 = non assigné
+          // Trouver le conseiller du client
+          const client = await this.userRepository.findById(userId);
+          if (client && !(client instanceof Error) && client.advisorId) {
+            finalReceiverId = client.advisorId;
+          } else {
+            // Par défaut, envoyer au premier conseiller disponible (ID 1)
+            finalReceiverId = 1;
+          }
         } else {
           // Pour les conseillers, receiverId est requis
           if (!receiverId) {
@@ -175,7 +181,17 @@ export class MessageController {
           return res.status(404).json({ error: 'Message non trouvé' });
         }
 
-        // Assigner le message au conseiller
+        // Mettre à jour le receiverId du message original pour qu'il pointe vers le conseiller
+        const updatedMessage = MessageEntity.create(
+          message.id,
+          message.senderId,
+          userId, // Le conseiller devient le receiver
+          message.message,
+          message.date
+        );
+        await this.messageRepository.update(updatedMessage);
+
+        // Assigner le message au conseiller dans le mapping
         if ('assignAdvisor' in this.messageRepository) {
           await (this.messageRepository as any).assignAdvisor(messageId, userId);
         }
@@ -198,21 +214,56 @@ export class MessageController {
       }
     });
 
-    // GET /api/messages/unassigned - Récupère les messages non assignés (conseillers uniquement)
-    this.router.get('/unassigned', requireAuth, async (req: Request, res: Response) => {
+    // POST /api/messages/transfer - Transférer une conversation à un autre conseiller
+    this.router.post('/transfer', requireAuth, async (req: Request, res: Response) => {
       try {
+        const userId = (req as any).userId;
         const userRole = (req as any).userRole;
-        
+        const { clientId, toAdviserId } = req.body;
+
+        // Seuls les conseillers peuvent transférer des conversations
         if (userRole !== 'ADVISE') {
-          return res.status(403).json({ error: 'Accès interdit' });
+          return res.status(403).json({ 
+            error: 'Accès interdit',
+            message: 'Seuls les conseillers peuvent transférer des conversations'
+          });
         }
 
-        const messages = await this.messageRepository.findUnassignedMessages();
-        res.json(this.toMessageDtoArray(messages));
+        // Validation des paramètres
+        if (!clientId || !toAdviserId) {
+          return res.status(400).json({
+            error: 'Paramètres manquants',
+            message: 'Les champs clientId et toAdviserId sont requis'
+          });
+        }
+
+        const clientIdNum = parseInt(clientId);
+        const toAdviserIdNum = parseInt(toAdviserId);
+
+        if (isNaN(clientIdNum) || isNaN(toAdviserIdNum)) {
+          return res.status(400).json({
+            error: 'Paramètres invalides',
+            message: 'clientId et toAdviserId doivent être des nombres'
+          });
+        }
+
+        // Transférer la conversation
+        const result = await this.transferConversationUseCase.execute(
+          clientIdNum,
+          userId, // fromAdviserId (l'utilisateur actuel)
+          toAdviserIdNum
+        );
+
+        if (result instanceof Error) {
+          return res.status(400).json({ error: result.message });
+        }
+
+        res.json(result);
       } catch (error: any) {
-        res.status(500).json({ 
-          error: 'Erreur lors de la récupération des messages non assignés',
-          details: error.message 
+        console.error('Erreur lors du transfert de la conversation:', error);
+        res.status(500).json({
+          error: 'Erreur lors du transfert de la conversation',
+          details: error.message
         });
       }
     });

@@ -75,7 +75,7 @@ const userController = new UserController(userRepository, accountRepository);
 const authController = new AuthController(userRepository, accountRepository);
 const operationController = new OperationController(operationRepository, accountRepository, userRepository);
 const savingsAccountController = new SavingsAccountController(savingsAccountRepository, accountRepository, operationRepository);
-const stockController = new StockController(stockRepository, socketServer);
+const stockController = new StockController(stockRepository, socketServer, orderRepository, stockHoldingRepository);
 const orderController = new OrderController(
   orderRepository, 
   stockRepository, 
@@ -86,8 +86,14 @@ const orderController = new OrderController(
   notificationRepository,
   socketServer
 );
-const creditController = new CreditController(creditRepository);
-const messageController = new MessageController(messageRepository);
+const creditController = new CreditController(
+  creditRepository,
+  accountRepository,
+  userRepository,
+  notificationRepository,
+  operationRepository
+);
+const messageController = new MessageController(messageRepository, notificationRepository);
 const notificationController = new NotificationController(notificationRepository);
 const bankController = new BankController(bankRepository, savingsAccountRepository, notificationRepository, userRepository);
 const beneficiaryController = new BeneficiaryController(beneficiaryRepository);

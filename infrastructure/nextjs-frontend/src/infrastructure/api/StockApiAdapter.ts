@@ -6,6 +6,7 @@ import {
   StockServiceInterface,
   CreateOrderData,
   CreateStockData,
+  UpdateStockData,
 } from '@/application/services/StockService';
 import { StockDto, OrderDto } from '@/shared/dto';
 
@@ -23,6 +24,22 @@ export class StockApiAdapter implements StockServiceInterface {
       return await apiClient.post<StockDto>('/api/stocks', data);
     } catch (error: any) {
       return new Error(error.response?.data?.error || error.response?.data?.message || 'Erreur lors de la création de l\'action');
+    }
+  }
+
+  async updateStock(currentSymbol: string, data: UpdateStockData): Promise<StockDto | Error> {
+    try {
+      return await apiClient.put<StockDto>(`/api/stocks/${currentSymbol}`, data);
+    } catch (error: any) {
+      return new Error(error.response?.data?.error || error.response?.data?.message || 'Erreur lors de la modification de l\'action');
+    }
+  }
+
+  async deleteStock(symbol: string): Promise<{ success: true; message: string } | Error> {
+    try {
+      return await apiClient.delete<{ success: true; message: string }>(`/api/stocks/${symbol}`);
+    } catch (error: any) {
+      return new Error(error.response?.data?.error || error.response?.data?.message || 'Erreur lors de la suppression de l\'action');
     }
   }
 

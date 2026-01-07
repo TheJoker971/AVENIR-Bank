@@ -5,6 +5,7 @@ import { apiClient } from './ApiClient';
 import {
   MessageServiceInterface,
   SendMessageData,
+  TransferConversationData,
 } from '@/application/services/MessageService';
 import { MessageDto } from '@/shared/dto';
 
@@ -56,6 +57,14 @@ export class MessageApiAdapter implements MessageServiceInterface {
       await apiClient.post(`/api/messages/${messageId}/transfer`, { fromAdvisorId, toAdvisorId });
     } catch (error: any) {
       return new Error(error.response?.data?.error || error.response?.data?.message || 'Erreur lors du transfert du message');
+    }
+  }
+
+  async transferConversation(data: TransferConversationData): Promise<{ success: true; message: string } | Error> {
+    try {
+      return await apiClient.post<{ success: true; message: string }>('/api/messages/transfer', data);
+    } catch (error: any) {
+      return new Error(error.response?.data?.error || error.response?.data?.message || 'Erreur lors du transfert de la conversation');
     }
   }
 }
