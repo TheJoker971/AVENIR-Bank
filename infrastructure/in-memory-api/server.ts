@@ -1,4 +1,5 @@
 import express, { Express, Request, Response } from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import { AccountController } from './controllers/AccountController';
 import { UserController } from './controllers/UserController';
@@ -15,6 +16,7 @@ import { BeneficiaryController } from './controllers/BeneficiaryController';
 import { PortfolioController } from './controllers/PortfolioController';
 import { seed } from './seed';
 import { authMiddleware } from './middlewares/authMiddleware';
+import { SocketServer } from './socket/socketServer';
 
 // Initialisation des repositories in-memory
 import { AccountRepositoryInMemory, SavingsAccountRepositoryInMemory } from '../repositories/in-memory/AccountRepositoryInMemory';
@@ -30,7 +32,11 @@ import { BeneficiaryRepositoryInMemory } from '../repositories/in-memory/Benefic
 import { StockHoldingRepositoryInMemory } from '../repositories/in-memory/StockHoldingRepositoryInMemory';
 
 const app: Express = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
+
+// Initialiser le serveur WebSocket
+const socketServer = new SocketServer(httpServer);
 
 // Middleware CORS - Accepte toutes les origines localhost
 app.use(cors({
@@ -63,13 +69,13 @@ const bankRepository = new BankRepositoryInMemory();
 const beneficiaryRepository = new BeneficiaryRepositoryInMemory();
 const stockHoldingRepository = new StockHoldingRepositoryInMemory();
 
-// Initialisation des contrôleurs
+// Initialisation des contrôleurs (avec socketServer pour les notifications en temps réel)
 const accountController = new AccountController(accountRepository, operationRepository);
 const userController = new UserController(userRepository, accountRepository);
 const authController = new AuthController(userRepository, accountRepository);
 const operationController = new OperationController(operationRepository, accountRepository, userRepository);
-const savingsAccountController = new SavingsAccountController(savingsAccountRepository);
-const stockController = new StockController(stockRepository);
+const savingsAccountController = new SavingsAccountController(savingsAccountRepository, accountRepository, operationRepository);
+const stockController = new StockController(stockRepository, socketServer);
 const orderController = new OrderController(
   orderRepository, 
   stockRepository, 
@@ -77,7 +83,8 @@ const orderController = new OrderController(
   userRepository,
   stockHoldingRepository,
   operationRepository,
-  notificationRepository
+  notificationRepository,
+  socketServer
 );
 const creditController = new CreditController(creditRepository);
 const messageController = new MessageController(messageRepository);
@@ -157,9 +164,10 @@ async function startServer() {
     // On continue quand même le démarrage du serveur
   }
 
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`🚀 Serveur API In-Memory démarré sur le port ${PORT}`);
     console.log(`📡 Endpoints disponibles sur http://localhost:${PORT}/api`);
+    console.log(`🔌 WebSocket server ready`);
   });
 }
 

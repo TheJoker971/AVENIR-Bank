@@ -158,15 +158,8 @@ export default function OperationsPage() {
                     receiverIban,
                     activeIban,
                     isCredit,
-                    isDebit,
-                    senderName: `${operation.transferData.senderFirstName} ${operation.transferData.senderLastName}`,
-                    receiverName: `${operation.transferData.receiverFirstName} ${operation.transferData.receiverLastName}`
+                    isDebit
                   });
-                  
-                  // Si on est le receiver → crédit, sinon débit
-                  const otherParty = isCredit 
-                    ? `${operation.transferData.senderFirstName} ${operation.transferData.senderLastName}`
-                    : `${operation.transferData.receiverFirstName} ${operation.transferData.receiverLastName}`;
                   
                   return (
                     <tr key={operation.id} className="hover:bg-sky-50/50 transition-colors">
@@ -189,14 +182,11 @@ export default function OperationsPage() {
                         {formatAmount(operation.amount)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-700">
-                        <div>
-                          {operation.transferData.reason && (
-                            <p className="font-medium">{operation.transferData.reason}</p>
-                          )}
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {isCredit ? 'De : ' : 'Vers : '}{otherParty}
-                          </p>
-                        </div>
+                        {operation.transferData.reason ? (
+                          <p className="font-medium">{operation.transferData.reason}</p>
+                        ) : (
+                          <p className="text-slate-500 italic">-</p>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${

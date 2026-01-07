@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { PortfolioApiAdapter } from '@/infrastructure/api/PortfolioApiAdapter';
 import { PortfolioDto, StockHoldingDto } from '@/shared/dto';
 import { PortfolioServiceInterface } from '@/application/services/PortfolioService';
+import { useWebSocket } from './useWebSocket';
 
 const portfolioService: PortfolioServiceInterface = new PortfolioApiAdapter();
 
@@ -14,6 +15,7 @@ export const usePortfolio = (userId: number | null) => {
   const [portfolio, setPortfolio] = useState<PortfolioDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const socket = useWebSocket(userId);
 
   const loadPortfolio = async () => {
     if (!userId) return;
@@ -37,6 +39,22 @@ export const usePortfolio = (userId: number | null) => {
       loadPortfolio();
     }
   }, [userId]);
+
+  // Écouter les mises à jour de holdings en temps réel via WebSocket
+  useEffect(() => {
+    if (socket && userId) {
+      console.log('🔌 [usePortfolio] Écoute des événements holdingsUpdated');
+      
+      socket.on('holdingsUpdated', (holdings: any[]) => {
+        console.log('⚡ [usePortfolio] Holdings mis à jour via WebSocket:', holdings);
+        loadPortfolio(); // Rafraîchir le portfolio complet
+      });
+
+      return () => {
+        socket.off('holdingsUpdated');
+      };
+    }
+  }, [socket, userId]);
 
   const getHoldingBySymbol = async (stockSymbol: string): Promise<StockHoldingDto | null> => {
     if (!userId) return null;

@@ -76,7 +76,7 @@ export const useOrders = (userId: number | null) => {
     stockId: number;
     type: 'BUY' | 'SELL';
     quantity: number;
-    price: number;
+    price: number | null;  // null = prix du marché
   }) => {
     if (!userId) return null;
     
@@ -105,7 +105,7 @@ export const useOrders = (userId: number | null) => {
   return {
     orders,
     loading,
-    error,
+    error,  // Exposer l'erreur pour l'affichage dans les composants
     createOrder,
     cancelOrder,
     refresh: loadOrders,

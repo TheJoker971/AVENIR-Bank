@@ -14,7 +14,9 @@ import Link from 'next/link';
 export default function MyOrdersPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { stocks } = useStocks();
-  const { orders, cancelOrder } = useOrders(user?.id || null);
+  const { orders, cancelOrder, error: ordersError } = useOrders(user?.id || null);
+  const [cancelSuccess, setCancelSuccess] = useState<number | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,6 +35,19 @@ export default function MyOrdersPage() {
 
   const pendingOrders = orders.filter(o => o.status === 'PENDING');
   const executedOrders = orders.filter(o => o.status === 'EXECUTED');
+
+  const handleCancelOrder = async (orderId: number) => {
+    setCancelError(null);
+    setCancelSuccess(null);
+    
+    const success = await cancelOrder(orderId);
+    if (success) {
+      setCancelSuccess(orderId);
+      setTimeout(() => setCancelSuccess(null), 3000);
+    } else {
+      setCancelError(ordersError || 'Erreur lors de l\'annulation de l\'ordre');
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -110,7 +125,7 @@ export default function MyOrdersPage() {
                               Voir
                             </Link>
                             <button
-                              onClick={() => cancelOrder(order.id)}
+                              onClick={() => handleCancelOrder(order.id)}
                               className="px-3 py-1.5 text-xs font-medium text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
                             >
                               Annuler

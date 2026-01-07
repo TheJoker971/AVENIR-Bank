@@ -5,9 +5,13 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/presentation/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
   const [mounted, setMounted] = useState(false);
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -85,22 +89,49 @@ export default function HomePage() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <Link
-              href="/register"
-              className="btn-premium text-lg px-10 py-4 group relative overflow-hidden"
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                Devenir Client Prestige
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </span>
-            </Link>
-            
-            <Link
-              href="/login"
-              className="px-10 py-4 text-lg text-pearl border-2 border-gold/30 hover:border-gold rounded-lg transition-all duration-300 hover:bg-gold/5 backdrop-blur-sm"
-            >
-              Espace Client
-            </Link>
+            {!loading && (
+              <>
+                {!isAuthenticated ? (
+                  <>
+                    <Link
+                      href="/register"
+                      className="btn-premium text-lg px-10 py-4 group relative overflow-hidden"
+                    >
+                      <span className="relative z-10 flex items-center gap-2">
+                        Devenir Client Prestige
+                        <span className="group-hover:translate-x-1 transition-transform">→</span>
+                      </span>
+                    </Link>
+                    
+                    <Link
+                      href="/login"
+                      className="px-10 py-4 text-lg text-pearl border-2 border-gold/30 hover:border-gold rounded-lg transition-all duration-300 hover:bg-gold/5 backdrop-blur-sm"
+                    >
+                      Espace Client
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/dashboard"
+                      className="btn-premium text-lg px-10 py-4 group relative overflow-hidden"
+                    >
+                      <span className="relative z-10 flex items-center gap-2">
+                        Accéder au Tableau de Bord
+                        <span className="group-hover:translate-x-1 transition-transform">→</span>
+                      </span>
+                    </Link>
+                    
+                    <Link
+                      href="/stocks"
+                      className="px-10 py-4 text-lg text-pearl border-2 border-gold/30 hover:border-gold rounded-lg transition-all duration-300 hover:bg-gold/5 backdrop-blur-sm"
+                    >
+                      Investir en Bourse
+                    </Link>
+                  </>
+                )}
+              </>
+            )}
           </div>
 
           {/* Divider */}

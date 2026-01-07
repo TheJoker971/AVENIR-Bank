@@ -6,13 +6,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/presentation/hooks/useAuth';
 import { useStocks } from '@/presentation/hooks/useStocks';
+import { useWebSocket } from '@/presentation/hooks/useWebSocket';
 import { useRouter } from 'next/navigation';
 import { formatAmount } from '@/shared/utils';
 import Link from 'next/link';
 
 export default function StocksPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { stocks, loading: stocksLoading } = useStocks();
+  const { stocks, loading: stocksLoading, refresh: refreshStocks } = useStocks();
+  const socket = useWebSocket(user?.id || null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'available'>('name');
   const router = useRouter();
@@ -22,6 +24,20 @@ export default function StocksPage() {
       router.push('/login');
     }
   }, [authLoading, isAuthenticated, router]);
+
+  // Rafraîchir les stocks via WebSocket lorsqu'une action est mise à jour
+  useEffect(() => {
+    if (socket) {
+      socket.on('stockUpdated', (data: { symbol: string; currentPrice: number; availableShares: number }) => {
+        console.log('⚡ [StocksPage] Stock mis à jour via WebSocket:', data);
+        refreshStocks();
+      });
+
+      return () => {
+        socket.off('stockUpdated');
+      };
+    }
+  }, [socket, refreshStocks]);
 
   if (authLoading) {
     return <div className="p-8 text-center text-slate-700">Chargement...</div>;
@@ -122,7 +138,7 @@ export default function StocksPage() {
                   <p className="text-sm text-slate-500 mt-0.5">{stock.name}</p>
                 </div>
                 <span className="px-3 py-1 bg-sky-50 text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold">
-                  {stock.sector || 'Technologie'}
+                  Technologie
                 </span>
               </div>
 
@@ -151,14 +167,23 @@ export default function StocksPage() {
                 <div className="flex justify-between items-center mb-1.5">
                   <span className="text-xs text-slate-600 font-medium">Disponibilité</span>
                   <span className="text-xs text-slate-800 font-semibold">
-                    {Math.round((stock.availableShares / stock.totalShares) * 100)}%
+                    {((stock.availableShares / stock.totalShares) * 100).toFixed(2)}%
                   </span>
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-gradient-to-r from-red-100 to-red-200 rounded-full overflow-hidden relative">
+                  {/* Partie disponible (gradient bleu par-dessus) */}
                   <div 
-                    className="h-full bg-gradient-to-r from-sky-500 to-blue-500 rounded-full transition-all duration-500"
+                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full transition-all duration-500"
                     style={{ width: `${(stock.availableShares / stock.totalShares) * 100}%` }}
                   />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px] text-emerald-600 font-medium">
+                    {stock.availableShares.toLocaleString()} disponibles
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    {(stock.totalShares - stock.availableShares).toLocaleString()} vendues
+                  </span>
                 </div>
               </div>
 

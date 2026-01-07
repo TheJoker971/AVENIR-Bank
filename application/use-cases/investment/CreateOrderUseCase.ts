@@ -6,12 +6,16 @@ import { AccountRepositoryInterface } from "application/repositories/AccountRepo
 import { StockHoldingRepositoryInterface } from "application/repositories/StockHoldingRepositoryInterface";
 import { MatchOrdersUseCase } from "./MatchOrdersUseCase";
 import { ExecuteMatchedOrdersUseCase } from "./ExecuteMatchedOrdersUseCase";
+import { ExecuteInstantTradeUseCase } from "./ExecuteInstantTradeUseCase";
 import { StockSymbol } from "domain/values/StockSymbol";
 import { Amount } from "domain/values/Amount";
+import { TransferData } from "domain/values/TransferData";
+import { OperationEntity } from "domain/entities/OperationEntity";
 
 export class CreateOrderUseCase {
   private matchOrdersUseCase: MatchOrdersUseCase;
   private executeMatchedOrdersUseCase: ExecuteMatchedOrdersUseCase;
+  private executeInstantTradeUseCase: ExecuteInstantTradeUseCase;
 
   constructor(
     private orderRepository: OrderRepositoryInterface,
@@ -19,7 +23,8 @@ export class CreateOrderUseCase {
     private userRepository: UserRepositoryInterface,
     private accountRepository: AccountRepositoryInterface,
     private stockHoldingRepository: StockHoldingRepositoryInterface,
-    private operationRepository: any // OperationRepositoryInterface
+    private operationRepository: any, // OperationRepositoryInterface
+    private notificationRepository: any // NotificationRepositoryInterface
   ) {
     this.matchOrdersUseCase = new MatchOrdersUseCase(orderRepository, stockRepository);
     this.executeMatchedOrdersUseCase = new ExecuteMatchedOrdersUseCase(
@@ -27,7 +32,18 @@ export class CreateOrderUseCase {
       stockRepository,
       accountRepository,
       stockHoldingRepository,
-      operationRepository
+      operationRepository,
+      userRepository,
+      notificationRepository
+    );
+    this.executeInstantTradeUseCase = new ExecuteInstantTradeUseCase(
+      stockRepository,
+      accountRepository,
+      stockHoldingRepository,
+      operationRepository,
+      userRepository,
+      notificationRepository,
+      orderRepository
     );
   }
 
@@ -36,7 +52,7 @@ export class CreateOrderUseCase {
     stockSymbol: string,
     orderType: "BUY" | "SELL",
     quantity: number,
-    price: number
+    price: number | null  // null = prix du marché
   ): Promise<OrderEntity | Error> {
     // Vérifier que l'utilisateur existe
     const user = await this.userRepository.findById(clientId);
@@ -53,9 +69,65 @@ export class CreateOrderUseCase {
       return new Error("Action non trouvée");
     }
 
+    // ===== NOUVEAU : Achat/Vente immédiat au prix du marché =====
+    if (price === null) {
+      console.log(`🔥 [CreateOrderUseCase] Exécution immédiate au prix du marché: ${orderType} ${quantity} ${stockSymbol}`);
+      
+      if (orderType === "BUY") {
+        const result = await this.executeInstantTradeUseCase.executeBuy(
+          clientId,
+          stockSymbolOrError,
+          quantity
+        );
+        
+        if (result instanceof Error) {
+          return result;
+        }
+        
+        // Retourner un ordre fictif "EXECUTED" pour compatibilité avec l'API
+        const executedOrder = OrderEntity.createBuyOrder(
+          Date.now(),
+          stockSymbolOrError,
+          quantity,
+          stock.getCurrentPrice(),
+          clientId
+        );
+        
+        if (executedOrder instanceof Error) return executedOrder;
+        return executedOrder.execute();
+        
+      } else {
+        const result = await this.executeInstantTradeUseCase.executeSell(
+          clientId,
+          stockSymbolOrError,
+          quantity
+        );
+        
+        if (result instanceof Error) {
+          return result;
+        }
+        
+        // Retourner un ordre fictif "EXECUTED" pour compatibilité avec l'API
+        const executedOrder = OrderEntity.createSellOrder(
+          Date.now(),
+          stockSymbolOrError,
+          quantity,
+          stock.getCurrentPrice(),
+          clientId
+        );
+        
+        if (executedOrder instanceof Error) return executedOrder;
+        return executedOrder.execute();
+      }
+    }
+    
+    // ===== Sinon, créer un ordre en attente (ancien comportement) =====
+
     // Créer les objets de valeur
+    let finalPrice: Amount;
     const amountOrError = Amount.create(price);
     if (amountOrError instanceof Error) return amountOrError;
+    finalPrice = amountOrError;
 
     // Vérifier les conditions spécifiques selon le type d'ordre
     if (orderType === "BUY") {
@@ -66,7 +138,7 @@ export class CreateOrderUseCase {
       }
 
       // Calculer le montant total avec frais
-      const totalAmount = amountOrError.multiply(quantity);
+      const totalAmount = finalPrice.multiply(quantity);
       const fees = Amount.create(1);
       if (fees instanceof Error) return fees;
       const totalWithFees = totalAmount.add(fees);
@@ -75,6 +147,51 @@ export class CreateOrderUseCase {
       const totalBalance = accounts.reduce((sum, acc) => sum + acc.getBalance().value, 0);
       if (totalBalance < totalWithFees.value) {
         return new Error(`Solde insuffisant. Montant requis: ${totalWithFees.value.toFixed(2)}€, Solde disponible: ${totalBalance.toFixed(2)}€`);
+      }
+
+      // NOUVEAU : Pour les ordres BUY, réserver les fonds immédiatement
+      // Trouver le compte avec le plus de solde
+      const accountWithFunds = accounts.reduce((max, acc) => 
+        acc.getBalance().value > max.getBalance().value ? acc : max
+      );
+
+      // Débiter le compte pour réserver les fonds
+      const debitedAccount = accountWithFunds.debit(totalWithFees);
+      if (debitedAccount instanceof Error) {
+        return debitedAccount;
+      }
+
+      // Mettre à jour le compte dans le repository
+      await this.accountRepository.update(debitedAccount);
+      
+      // Créer une opération pour tracer la réservation
+      try {
+        const transferDataOrError = TransferData.create(
+          'AVENIR Bank',
+          'Système',
+          'FR7630001007941234567890185',
+          user.lastname,
+          user.firstname,
+          accountWithFunds.iban.value,
+          true,
+          `Réservation pour ordre d'achat ${stockSymbol} (${quantity} actions)`
+        );
+
+        if (!(transferDataOrError instanceof Error)) {
+          const operationId = Date.now();
+          const operationOrError = OperationEntity.create(
+            operationId,
+            transferDataOrError,
+            totalWithFees,
+            "PENDING"
+          );
+
+          if (!(operationOrError instanceof Error)) {
+            await this.operationRepository.save(operationOrError);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la création de l\'opération de réservation:', error);
       }
     } else {
       // Vérifier que le client possède assez d'actions
@@ -95,7 +212,7 @@ export class CreateOrderUseCase {
         Date.now(), // ID temporaire
         stockSymbolOrError,
         quantity,
-        amountOrError,
+        finalPrice,
         clientId
       );
     } else {
@@ -103,7 +220,7 @@ export class CreateOrderUseCase {
         Date.now(), // ID temporaire
         stockSymbolOrError,
         quantity,
-        amountOrError,
+        finalPrice,
         clientId
       );
     }

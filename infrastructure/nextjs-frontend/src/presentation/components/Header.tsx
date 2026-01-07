@@ -25,7 +25,8 @@ export const Header: React.FC = () => {
     if (user && isAuthenticated && user.role === 'CLIENT') {
       fetchActiveAccount(user.id);
     }
-  }, [user, isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isAuthenticated]);
 
   return (
     <header className="glass border-b border-sky-200/40 sticky top-0 z-50 backdrop-blur-xl shadow-sm">
@@ -58,7 +59,7 @@ export const Header: React.FC = () => {
                 </Link>
                 
                 {/* Tableau de Bord : visible pour tous si connectés */}
-                {user && (user.role === 'ADVISE' || user.role === 'DIRECTOR' || activeAccount) && (
+                {user && (user.role === 'ADVISE' || user.role === 'DIRECTOR' || user.role === 'CLIENT') && (
                   <Link
                     href="/dashboard"
                     className={`inline-flex items-center h-16 px-4 text-sm font-medium transition-all duration-200 border-b-2 ${

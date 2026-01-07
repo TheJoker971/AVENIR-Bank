@@ -8,7 +8,7 @@ export interface CreateOrderData {
   stockId: number;
   type: 'BUY' | 'SELL';
   quantity: number;
-  price: number;
+  price: number | null;  // null = prix du marché
 }
 
 export interface CreateStockData {

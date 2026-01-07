@@ -373,118 +373,9 @@ async function seed(
       console.log('7️⃣  Opérations non créées (repository non fourni)\n');
     }
 
-    // 8. Créer des ordres dans le carnet d'ordres
-    if (orderRepository) {
-      console.log('8️⃣  Création des ordres dans le carnet...');
-      
-      let orderId = 1;
-
-      // ===== ORDRES POUR AAPL =====
-      console.log(`   📊 Création d'ordres pour ${symbol1.value}...`);
-      
-      // Ordres d'achat AAPL (différents prix pour créer un carnet d'ordres réaliste)
-      const aaplBuyPrices = [148.00, 148.50, 149.00, 149.50, 150.00, 150.25];
-      const aaplBuyQuantities = [10, 15, 20, 8, 12, 5];
-      for (let i = 0; i < aaplBuyPrices.length; i++) {
-        const price = Amount.create(aaplBuyPrices[i]);
-        if (price instanceof Error) throw price;
-        const order = OrderEntity.createBuyOrder(orderId++, symbol1, aaplBuyQuantities[i], price, i % 2 === 0 ? 1 : 2);
-        if (order instanceof Error) throw order;
-        await orderRepository.save(order);
-      }
-      console.log(`      ✅ ${aaplBuyPrices.length} ordres d'achat ${symbol1.value} créés`);
-
-      // Ordres de vente AAPL
-      const aaplSellPrices = [151.00, 151.50, 152.00, 152.50, 153.00, 153.25];
-      const aaplSellQuantities = [5, 10, 8, 12, 15, 7];
-      for (let i = 0; i < aaplSellPrices.length; i++) {
-        const price = Amount.create(aaplSellPrices[i]);
-        if (price instanceof Error) throw price;
-        const order = OrderEntity.createSellOrder(orderId++, symbol1, aaplSellQuantities[i], price, i % 2 === 0 ? 2 : 1);
-        if (order instanceof Error) throw order;
-        await orderRepository.save(order);
-      }
-      console.log(`      ✅ ${aaplSellPrices.length} ordres de vente ${symbol1.value} créés`);
-
-      // Ordre AAPL partiellement exécuté pour Marie Martin
-      const buyPricePartial = Amount.create(149.00);
-      if (buyPricePartial instanceof Error) throw buyPricePartial;
-      const buyOrderPartial = OrderEntity.createBuyOrder(orderId++, symbol1, 20, buyPricePartial, 2);
-      if (buyOrderPartial instanceof Error) throw buyOrderPartial;
-      const executedQuantity = 12;
-      const partialBuyOrder = buyOrderPartial.partiallyExecute(executedQuantity);
-      if (partialBuyOrder instanceof Error) throw partialBuyOrder;
-      await orderRepository.save(partialBuyOrder);
-      console.log(`      ✅ 1 ordre ${symbol1.value} partiellement exécuté créé`);
-
-      // ===== ORDRES POUR GOOGL =====
-      console.log(`   📊 Création d'ordres pour ${symbol2.value}...`);
-      
-      // Ordres d'achat GOOGL
-      const googlBuyPrices = [2750.00, 2760.00, 2770.00, 2780.00, 2790.00];
-      const googlBuyQuantities = [2, 3, 1, 2, 1];
-      for (let i = 0; i < googlBuyPrices.length; i++) {
-        const price = Amount.create(googlBuyPrices[i]);
-        if (price instanceof Error) throw price;
-        const order = OrderEntity.createBuyOrder(orderId++, symbol2, googlBuyQuantities[i], price, i % 2 === 0 ? 1 : 2);
-        if (order instanceof Error) throw order;
-        await orderRepository.save(order);
-      }
-      console.log(`      ✅ ${googlBuyPrices.length} ordres d'achat ${symbol2.value} créés`);
-
-      // Ordres de vente GOOGL
-      const googlSellPrices = [2810.00, 2820.00, 2830.00, 2840.00, 2850.00];
-      const googlSellQuantities = [1, 2, 1, 2, 1];
-      for (let i = 0; i < googlSellPrices.length; i++) {
-        const price = Amount.create(googlSellPrices[i]);
-        if (price instanceof Error) throw price;
-        const order = OrderEntity.createSellOrder(orderId++, symbol2, googlSellQuantities[i], price, i % 2 === 0 ? 2 : 1);
-        if (order instanceof Error) throw order;
-        await orderRepository.save(order);
-      }
-      console.log(`      ✅ ${googlSellPrices.length} ordres de vente ${symbol2.value} créés`);
-
-      // Ordre GOOGL exécuté (historique)
-      const sellPriceExecuted = Amount.create(2850.00);
-      if (sellPriceExecuted instanceof Error) throw sellPriceExecuted;
-      const sellOrderExecuted = OrderEntity.createSellOrder(orderId++, symbol2, 1, sellPriceExecuted, 1);
-      if (sellOrderExecuted instanceof Error) throw sellOrderExecuted;
-      const executedSellOrder = sellOrderExecuted.execute();
-      await orderRepository.save(executedSellOrder);
-      console.log(`      ✅ 1 ordre ${symbol2.value} exécuté créé (historique)`);
-
-      // ===== ORDRES POUR MSFT =====
-      console.log(`   📊 Création d'ordres pour ${symbol3.value}...`);
-      
-      // Ordres d'achat MSFT
-      const msftBuyPrices = [3250.00, 3260.00, 3270.00, 3280.00, 3290.00, 3295.00];
-      const msftBuyQuantities = [3, 2, 4, 2, 3, 1];
-      for (let i = 0; i < msftBuyPrices.length; i++) {
-        const price = Amount.create(msftBuyPrices[i]);
-        if (price instanceof Error) throw price;
-        const order = OrderEntity.createBuyOrder(orderId++, symbol3, msftBuyQuantities[i], price, i % 2 === 0 ? 2 : 1);
-        if (order instanceof Error) throw order;
-        await orderRepository.save(order);
-      }
-      console.log(`      ✅ ${msftBuyPrices.length} ordres d'achat ${symbol3.value} créés`);
-
-      // Ordres de vente MSFT
-      const msftSellPrices = [3310.00, 3320.00, 3330.00, 3340.00, 3350.00, 3355.00];
-      const msftSellQuantities = [2, 3, 2, 4, 3, 1];
-      for (let i = 0; i < msftSellPrices.length; i++) {
-        const price = Amount.create(msftSellPrices[i]);
-        if (price instanceof Error) throw price;
-        const order = OrderEntity.createSellOrder(orderId++, symbol3, msftSellQuantities[i], price, i % 2 === 0 ? 1 : 2);
-        if (order instanceof Error) throw order;
-        await orderRepository.save(order);
-      }
-      console.log(`      ✅ ${msftSellPrices.length} ordres de vente ${symbol3.value} créés`);
-
-      const totalOrders = orderId - 1;
-      console.log(`\n   📊 Total: ${totalOrders} ordres créés dans le carnet d'ordres\n`);
-    } else {
-      console.log('8️⃣  Ordres non créés (repository non fourni)\n');
-    }
+    // 8. Pas d'ordres pré-créés dans le seed
+    // Les utilisateurs pourront créer leurs propres ordres via l'interface
+    console.log('8️⃣  Aucun ordre pré-créé (les utilisateurs créeront leurs propres ordres)\n');
 
     // 9. Créer des bénéficiaires
     if (beneficiaryRepository) {
@@ -601,13 +492,7 @@ async function seed(
       console.log('   - 4 opérations');
     }
     if (orderRepository) {
-      // Compter les ordres créés
-      const allOrders = await orderRepository.findAll();
-      const pendingOrders = allOrders.filter(o => o.isPending());
-      const executedOrders = allOrders.filter(o => o.isExecuted());
-      const partialOrders = allOrders.filter(o => o.isPartiallyExecuted());
-      console.log(`   - ${allOrders.length} ordres dans le carnet (${pendingOrders.length} en attente, ${executedOrders.length} exécutés, ${partialOrders.length} partiellement exécutés)`);
-      console.log('   - Le prix d\'équilibre sera calculé automatiquement lors de la récupération du carnet d\'ordres');
+      console.log(`   - 0 ordres pré-créés (les utilisateurs créeront leurs propres ordres)`);
     }
     if (beneficiaryRepository) {
       // Compter les bénéficiaires créés

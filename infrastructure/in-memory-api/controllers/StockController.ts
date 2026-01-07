@@ -2,12 +2,17 @@ import { Router, Request, Response } from 'express';
 import { StockRepositoryInterface } from '../../../application/repositories/StockRepositoryInterface';
 import { CreateStockUseCase } from '../../../application/use-cases/stock/CreateStockUseCase';
 import { requireAuth, requireRole } from '../middlewares/auth';
+import { SocketServer } from '../socket/socketServer';
+import { StockSymbol } from '../../../domain/values/StockSymbol';
 
 export class StockController {
   private router: Router;
   private createStockUseCase: CreateStockUseCase;
 
-  constructor(private stockRepository: StockRepositoryInterface) {
+  constructor(
+    private stockRepository: StockRepositoryInterface,
+    private socketServer: SocketServer
+  ) {
     this.router = Router();
     this.createStockUseCase = new CreateStockUseCase(stockRepository);
     this.setupRoutes();
@@ -40,6 +45,28 @@ export class StockController {
         res.json(this.toStockDtoArray(stocks));
       } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la récupération des actions' });
+      }
+    });
+
+    // GET /api/stocks/symbol/:symbol - Récupère une action par symbole
+    this.router.get('/symbol/:symbol', async (req: Request, res: Response) => {
+      try {
+        const symbolStr = req.params.symbol.toUpperCase();
+        const symbolOrError = StockSymbol.create(symbolStr);
+        
+        if (symbolOrError instanceof Error) {
+          return res.status(400).json({ error: symbolOrError.message });
+        }
+        
+        const stock = await this.stockRepository.findBySymbol(symbolOrError);
+        
+        if (!stock) {
+          return res.status(404).json({ error: 'Action non trouvée' });
+        }
+        
+        res.json(this.toStockDto(stock));
+      } catch (error) {
+        res.status(500).json({ error: 'Erreur lors de la récupération de l\'action' });
       }
     });
 

@@ -87,15 +87,55 @@ export class ExecuteMatchedOrdersUseCase {
     const totalBuyAmount = transactionAmount.add(transactionFees); // Acheteur paie le montant + frais
     const totalSellAmount = transactionAmount.subtract(transactionFees); // Vendeur reçoit le montant - frais
 
-    // 4. Vérifier que l'acheteur a assez d'argent
-    if (buyerAccount.balance.isLessThan(totalBuyAmount)) {
-      return new Error("Solde insuffisant pour l'acheteur");
-    }
+    // 4. Gérer le débit de l'acheteur avec système de réservation
+    // Trouver l'opération de réservation pour cet ordre
+    const allOperations = await this.operationRepository.findAll();
+    const reservationOp = allOperations.find((op: any) => 
+      op.status === 'PENDING' && 
+      op.transferData?.reason?.includes(`ordre d'achat ${buyOrder.getStockSymbol().value}`)
+    );
 
-    // 5. Débiter le compte de l'acheteur
-    const debitedBuyerAccount = buyerAccount.debit(totalBuyAmount);
-    if (debitedBuyerAccount instanceof Error) {
-      return debitedBuyerAccount;
+    let debitedBuyerAccount;
+    if (!reservationOp) {
+      // Si pas de réservation trouvée, débiter normalement (rétrocompatibilité)
+      if (buyerAccount.balance.isLessThan(totalBuyAmount)) {
+        return new Error("Solde insuffisant pour l'acheteur");
+      }
+      debitedBuyerAccount = buyerAccount.debit(totalBuyAmount);
+      if (debitedBuyerAccount instanceof Error) {
+        return debitedBuyerAccount;
+      }
+      await this.accountRepository.update(debitedBuyerAccount);
+    } else {
+      // Marquer la réservation comme complétée
+      const completedReservation = reservationOp.complete();
+      await this.operationRepository.update(completedReservation);
+      
+      // Calculer la différence de prix entre réservation et exécution
+      const reservedAmount = reservationOp.amount;
+      
+      if (totalBuyAmount.value > reservedAmount.value) {
+        // L'exécution coûte plus cher, débiter la différence
+        const diff = Amount.create(totalBuyAmount.value - reservedAmount.value);
+        if (!(diff instanceof Error)) {
+          debitedBuyerAccount = buyerAccount.debit(diff);
+          if (debitedBuyerAccount instanceof Error) {
+            return debitedBuyerAccount;
+          }
+          await this.accountRepository.update(debitedBuyerAccount);
+        }
+      } else if (reservedAmount.value > totalBuyAmount.value) {
+        // L'exécution coûte moins cher, rembourser la différence
+        const diff = Amount.create(reservedAmount.value - totalBuyAmount.value);
+        if (!(diff instanceof Error)) {
+          const creditedBuyerAccount = buyerAccount.credit(diff);
+          if (!(creditedBuyerAccount instanceof Error)) {
+            await this.accountRepository.update(creditedBuyerAccount);
+          }
+        }
+      }
+      // Sinon, montants identiques, rien à faire (argent déjà réservé)
+      debitedBuyerAccount = buyerAccount; // Pas de changement au compte
     }
 
     // 6. Créditer le compte du vendeur
@@ -104,8 +144,7 @@ export class ExecuteMatchedOrdersUseCase {
       return creditedSellerAccount;
     }
 
-    // 7. Mettre à jour les comptes dans le repository
-    await this.accountRepository.update(debitedBuyerAccount);
+    // 7. Mettre à jour le compte du vendeur dans le repository
     await this.accountRepository.update(creditedSellerAccount);
 
     // 8. Exécuter ou partiellement exécuter les ordres
@@ -175,9 +214,12 @@ export class ExecuteMatchedOrdersUseCase {
     // Recalculer le prix d'équilibre basé sur le carnet d'ordres restant
     const equilibriumPrice = await this.calculateEquilibriumPriceUseCase.execute(buyOrder.getStockSymbol());
     if (!(equilibriumPrice instanceof Error)) {
-      // Si on peut calculer un nouveau prix d'équilibre, l'utiliser
+      // Mettre à jour le prix de l'action
       const finalStock = updatedStock.updatePrice(equilibriumPrice);
       await this.stockRepository.update(finalStock);
+      
+      // Déclencher un nouveau matching avec le nouveau prix (matching récursif)
+      await this.triggerRecursiveMatching(buyOrder.getStockSymbol());
     }
 
     // 12. Créer les opérations bancaires pour l'historique
@@ -185,6 +227,17 @@ export class ExecuteMatchedOrdersUseCase {
       // Récupérer les utilisateurs pour les noms et emails
       const buyerUser = await this.userRepository.findById(buyOrder.getClientId());
       const sellerUser = await this.userRepository.findById(sellOrder.getClientId());
+      
+      console.log('🔍 [ExecuteMatch] Buyer User:', {
+        id: buyerUser && !(buyerUser instanceof Error) ? buyerUser.id : 'N/A',
+        lastname: buyerUser && !(buyerUser instanceof Error) ? buyerUser.lastname : 'N/A',
+        firstname: buyerUser && !(buyerUser instanceof Error) ? buyerUser.firstname : 'N/A'
+      });
+      console.log('🔍 [ExecuteMatch] Seller User:', {
+        id: sellerUser && !(sellerUser instanceof Error) ? sellerUser.id : 'N/A',
+        lastname: sellerUser && !(sellerUser instanceof Error) ? sellerUser.lastname : 'N/A',
+        firstname: sellerUser && !(sellerUser instanceof Error) ? sellerUser.firstname : 'N/A'
+      });
 
       if (buyerUser && !(buyerUser instanceof Error) && sellerUser && !(sellerUser instanceof Error)) {
         // Utiliser directement les IBANs des comptes
@@ -193,18 +246,28 @@ export class ExecuteMatchedOrdersUseCase {
 
         if (buyerIban && sellerIban) {
           // Créer TransferData pour la transaction d'actions
+          console.log('🔍 [ExecuteMatch] Creating TransferData with:', {
+            senderLastName: buyerUser.lastname,
+            senderFirstName: buyerUser.firstname,
+            senderIban: buyerIban.value,
+            receiverLastName: sellerUser.lastname,
+            receiverFirstName: sellerUser.firstname,
+            receiverIban: sellerIban.value
+          });
+          
           const transferDataOrError = TransferData.create(
             buyerUser.lastname,
             buyerUser.firstname,
-            buyerIban,
+            buyerIban.value,
             sellerUser.lastname,
             sellerUser.firstname,
-            sellerIban,
+            sellerIban.value,
             true, // Transfer instantané
             `Transaction d'actions: ${matchQuantity} ${buyOrder.getStockSymbol().value} à ${matchPrice.value}€`
           );
 
           if (!(transferDataOrError instanceof Error)) {
+            console.log('✅ [ExecuteMatch] TransferData created successfully');
             // Créer l'opération pour l'acheteur (débit)
             const operationId = Date.now();
             const operationOrError = OperationEntity.create(
@@ -221,13 +284,22 @@ export class ExecuteMatchedOrdersUseCase {
 
             // Créer l'opération pour le vendeur (crédit)
             const operationId2 = Date.now() + 1;
+            console.log('🔍 [ExecuteMatch] Creating reverse TransferData with:', {
+              senderLastName: sellerUser.lastname,
+              senderFirstName: sellerUser.firstname,
+              senderIban: sellerIban.value,
+              receiverLastName: buyerUser.lastname,
+              receiverFirstName: buyerUser.firstname,
+              receiverIban: buyerIban.value
+            });
+            
             const reverseTransferDataOrError = TransferData.create(
               sellerUser.lastname,
               sellerUser.firstname,
-              sellerIban,
+              sellerIban.value,
               buyerUser.lastname,
               buyerUser.firstname,
-              buyerIban,
+              buyerIban.value,
               true,
               `Transaction d'actions: Vente de ${matchQuantity} ${sellOrder.getStockSymbol().value} à ${matchPrice.value}€`
             );
@@ -310,6 +382,47 @@ export class ExecuteMatchedOrdersUseCase {
     }
 
     return results;
+  }
+
+  /**
+   * Déclenche un matching récursif jusqu'à ce qu'il n'y ait plus de correspondances
+   * Limite à 10 itérations pour éviter les boucles infinies
+   */
+  private async triggerRecursiveMatching(
+    stockSymbol: StockSymbol,
+    maxIterations: number = 10,
+    currentIteration: number = 0
+  ): Promise<void> {
+    // Condition d'arrêt
+    if (currentIteration >= maxIterations) {
+      console.log(`Matching récursif arrêté après ${maxIterations} itérations`);
+      return;
+    }
+
+    // Créer une instance temporaire de MatchOrdersUseCase
+    const { MatchOrdersUseCase } = await import('./MatchOrdersUseCase');
+    const matchOrdersUseCase = new MatchOrdersUseCase(
+      this.orderRepository,
+      this.stockRepository
+    );
+
+    // Chercher de nouvelles correspondances
+    const matches = await matchOrdersUseCase.findMatches(stockSymbol);
+    
+    if (matches.length === 0) {
+      // Plus de correspondances, arrêter la récursion
+      return;
+    }
+
+    // Exécuter les correspondances trouvées
+    const results = await this.executeMatchesForStock(matches);
+    const successCount = results.filter(r => r.success).length;
+
+    if (successCount > 0) {
+      // Des ordres ont été exécutés, continuer le matching récursif
+      console.log(`Matching récursif: ${successCount} match(s) exécuté(s) à l'itération ${currentIteration + 1}`);
+      await this.triggerRecursiveMatching(stockSymbol, maxIterations, currentIteration + 1);
+    }
   }
 }
 

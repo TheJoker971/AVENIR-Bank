@@ -3,7 +3,7 @@
  */
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { AccountDto } from '@/shared/dto';
 
 interface ActiveAccountContextType {
@@ -55,7 +55,7 @@ export const ActiveAccountProvider: React.FC<ActiveAccountProviderProps> = ({ ch
   };
 
   // Récupérer le compte actif depuis l'API
-  const fetchActiveAccount = async (userId: number) => {
+  const fetchActiveAccount = useCallback(async (userId: number) => {
     setLoading(true);
     try {
       const response = await fetch(`http://localhost:3000/api/users/${userId}/active-account`, {
@@ -81,7 +81,7 @@ export const ActiveAccountProvider: React.FC<ActiveAccountProviderProps> = ({ ch
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Pas de dépendances car setLoading et setActiveAccount sont stables
 
   return (
     <ActiveAccountContext.Provider

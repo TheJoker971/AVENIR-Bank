@@ -9,14 +9,15 @@ import { requireAccountOwnership, filterUserAccounts, requireCanCreateAccount } 
 export class AccountController {
   private router: Router;
   private createAccountUseCase: CreateAccountUseCase;
+  private userRepository: UserRepositoryInMemory;
 
   constructor(
     private accountRepository: AccountRepositoryInterface,
     private operationRepository?: OperationRepositoryInterface
   ) {
     this.router = Router();
-    const userRepository = new UserRepositoryInMemory();
-    this.createAccountUseCase = new CreateAccountUseCase(accountRepository, userRepository);
+    this.userRepository = new UserRepositoryInMemory();
+    this.createAccountUseCase = new CreateAccountUseCase(accountRepository, this.userRepository);
     this.setupRoutes();
   }
 
@@ -49,7 +50,7 @@ export class AccountController {
         }
 
         // Vérifier que l'utilisateur est bien le propriétaire du compte
-        if (account.ownerId !== userId && account.ownerID !== userId) {
+        if (account.ownerId !== userId) {
           return res.status(403).json({ error: 'Accès non autorisé à ce compte' });
         }
 
@@ -58,8 +59,8 @@ export class AccountController {
           return res.status(500).json({ error: 'Service d\'opérations non disponible' });
         }
 
-        const iban = account.iban?.value || account.iban;
-        const operations = await this.operationRepository.findByAccountIban(iban);
+        const ibanValue = typeof account.iban === 'string' ? account.iban : account.iban?.value;
+        const operations = await this.operationRepository.findByAccountIban(ibanValue);
         
         // Convertir les opérations en DTO avec gestion des différents formats
         const operationsDto = operations.map(op => {
@@ -67,18 +68,28 @@ export class AccountController {
             const transferData = op.getTransferData();
             
             // Vérifier si c'est un objet TransferData valide avec les méthodes
-            const hasMethods = typeof transferData.getSenderLastName === 'function';
+            const hasMethods = typeof transferData.getSenderName === 'function';
             
             if (hasMethods) {
               // Format correct avec méthodes
               const senderIban = transferData.getSenderIban().value;
               const receiverIban = transferData.getReceiverIban().value;
               
+              // Extraire les noms depuis les méthodes getSenderName et getReceiverName
+              const senderNameParts = transferData.getSenderName().split(' ');
+              const receiverNameParts = transferData.getReceiverName().split(' ');
+              
+              // Le format est "Prénom Nom"
+              const senderFirstName = senderNameParts.slice(0, -1).join(' ') || '';
+              const senderLastName = senderNameParts[senderNameParts.length - 1] || '';
+              const receiverFirstName = receiverNameParts.slice(0, -1).join(' ') || '';
+              const receiverLastName = receiverNameParts[receiverNameParts.length - 1] || '';
+              
               console.log(`📤 [AccountController] Opération ${op.getId()}:`, {
                 senderIban,
                 receiverIban,
-                senderName: `${transferData.getSenderFirstName()} ${transferData.getSenderLastName()}`,
-                receiverName: `${transferData.getReceiverFirstName()} ${transferData.getReceiverLastName()}`
+                senderName: transferData.getSenderName(),
+                receiverName: transferData.getReceiverName()
               });
               
               return {
@@ -88,11 +99,11 @@ export class AccountController {
                 status: op.getStatus(),
                 date: op.getDate().toISOString(),
                 transferData: {
-                  senderLastName: transferData.getSenderLastName(),
-                  senderFirstName: transferData.getSenderFirstName(),
+                  senderLastName,
+                  senderFirstName,
                   senderIban,
-                  receiverLastName: transferData.getReceiverLastName(),
-                  receiverFirstName: transferData.getReceiverFirstName(),
+                  receiverLastName,
+                  receiverFirstName,
                   receiverIban,
                   instantTransfer: transferData.isInstantTransfer(),
                   reason: transferData.getReason() || '',
@@ -208,6 +219,66 @@ export class AccountController {
         res.json(this.toAccountDtoArray(accounts));
       } catch (error: any) {
         res.status(500).json({ error: 'Erreur lors de la récupération des comptes', details: error.message });
+      }
+    });
+
+    // GET /api/accounts/owner-by-iban/:iban - Récupère le propriétaire d'un IBAN (nom et prénom)
+    this.router.get('/owner-by-iban/:iban', async (req: Request, res: Response) => {
+      try {
+        const { Iban } = await import('../../../domain/values/Iban');
+        const CountryCode = await import('../../../domain/values/CountryCode');
+        const BankCode = await import('../../../domain/values/BankCode');
+        const BranchCode = await import('../../../domain/values/BranchCode');
+        const AccountNumber = await import('../../../domain/values/AccountNumber');
+        const RibKey = await import('../../../domain/values/RibKey');
+        
+        const ibanStr = req.params.iban.replace(/\s/g, '');
+        if (ibanStr.length !== 27 || !ibanStr.startsWith('FR')) {
+          return res.status(400).json({ error: 'Format IBAN invalide' });
+        }
+        
+        const countryCode = ibanStr.substring(0, 2) as any;
+        const bankCodeStr = ibanStr.substring(4, 9);
+        const branchCodeStr = ibanStr.substring(9, 14);
+        const accountNumberStr = ibanStr.substring(14, 25);
+        const ribKeyStr = ibanStr.substring(25, 27);
+        
+        const bankCodeOrError = BankCode.BankCode.create(bankCodeStr);
+        const branchCodeOrError = BranchCode.BranchCode.create(branchCodeStr);
+        const accountNumberOrError = AccountNumber.AccountNumber.create(accountNumberStr);
+        const ribKeyOrError = RibKey.RibKey.create(ribKeyStr);
+        
+        if (bankCodeOrError instanceof Error) return res.status(400).json({ error: bankCodeOrError.message });
+        if (branchCodeOrError instanceof Error) return res.status(400).json({ error: branchCodeOrError.message });
+        if (accountNumberOrError instanceof Error) return res.status(400).json({ error: accountNumberOrError.message });
+        if (ribKeyOrError instanceof Error) return res.status(400).json({ error: ribKeyOrError.message });
+        
+        const iban = Iban.create(countryCode, bankCodeOrError, branchCodeOrError, accountNumberOrError, ribKeyOrError);
+        
+        if (iban instanceof Error) {
+          return res.status(400).json({ error: iban.message });
+        }
+        
+        const account = await this.accountRepository.findByIban(iban);
+        
+        if (!account) {
+          return res.status(404).json({ error: 'Compte non trouvé' });
+        }
+
+        // Récupérer le propriétaire
+        const owner = await this.userRepository.findById(account.ownerId);
+        
+        if (!owner || owner instanceof Error) {
+          return res.status(404).json({ error: 'Propriétaire non trouvé' });
+        }
+        
+        res.json({
+          firstname: owner.firstname,
+          lastname: owner.lastname,
+          iban: ibanStr
+        });
+      } catch (error: any) {
+        res.status(500).json({ error: 'Erreur lors de la récupération du propriétaire', details: error.message });
       }
     });
 

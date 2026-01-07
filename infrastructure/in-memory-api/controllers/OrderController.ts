@@ -11,6 +11,10 @@ import { MatchOrdersUseCase } from '../../../application/use-cases/investment/Ma
 import { ExecuteMatchedOrdersUseCase } from '../../../application/use-cases/investment/ExecuteMatchedOrdersUseCase';
 import { CalculateEquilibriumPriceUseCase } from '../../../application/use-cases/investment/CalculateEquilibriumPriceUseCase';
 import { requireAuth } from '../middlewares/auth';
+import { Amount } from '../../../domain/values/Amount';
+import { TransferData } from '../../../domain/values/TransferData';
+import { OperationEntity } from '../../../domain/entities/OperationEntity';
+import { SocketServer } from '../socket/socketServer';
 
 export class OrderController {
   private router: Router;
@@ -26,7 +30,8 @@ export class OrderController {
     private userRepository: UserRepositoryInterface,
     private stockHoldingRepository: StockHoldingRepositoryInterface,
     private operationRepository: OperationRepositoryInterface,
-    private notificationRepository: NotificationRepositoryInterface
+    private notificationRepository: NotificationRepositoryInterface,
+    private socketServer: SocketServer
   ) {
     this.router = Router();
     this.createOrderUseCase = new CreateOrderUseCase(
@@ -35,7 +40,8 @@ export class OrderController {
       userRepository,
       accountRepository,
       stockHoldingRepository,
-      operationRepository
+      operationRepository,
+      notificationRepository
     );
     this.matchOrdersUseCase = new MatchOrdersUseCase(orderRepository, stockRepository);
     this.executeMatchedOrdersUseCase = new ExecuteMatchedOrdersUseCase(
@@ -107,10 +113,12 @@ export class OrderController {
 
         const { stockSymbol, orderType, quantity, price } = req.body;
 
-        if (!stockSymbol || !orderType || !quantity || !price) {
+        console.log(`📥 [OrderController] Requête reçue:`, { stockSymbol, orderType, quantity, price, priceType: typeof price });
+
+        if (!stockSymbol || !orderType || !quantity) {
           return res.status(400).json({ 
             error: 'Paramètres manquants',
-            message: 'Les champs stockSymbol, orderType, quantity et price sont requis'
+            message: 'Les champs stockSymbol, orderType et quantity sont requis. Le champ price est optionnel (null = prix du marché)'
           });
         }
 
@@ -122,20 +130,58 @@ export class OrderController {
           return res.status(400).json({ error: 'La quantité doit être un nombre positif' });
         }
 
-        if (typeof price !== 'number' || price <= 0) {
-          return res.status(400).json({ error: 'Le prix doit être un nombre positif' });
+        if (price !== null && price !== undefined) {
+          if (typeof price !== 'number' || price <= 0) {
+            return res.status(400).json({ error: 'Le prix doit être un nombre positif ou null pour le prix du marché' });
+          }
         }
+
+        const finalPrice = price === undefined ? null : price;
+        console.log(`📊 [OrderController] Appel CreateOrderUseCase avec price:`, finalPrice);
 
         const order = await this.createOrderUseCase.execute(
           userId,
           stockSymbol.toUpperCase(),
           orderType,
           quantity,
-          price
+          finalPrice
         );
 
         if (order instanceof Error) {
           return res.status(400).json({ error: order.message });
+        }
+
+        // Émettre des événements WebSocket pour mettre à jour le frontend
+        try {
+          // Récupérer l'action mise à jour pour envoyer les nouvelles données
+          const { StockSymbol } = await import('../../../domain/values/StockSymbol');
+          const symbolOrError = StockSymbol.create(stockSymbol.toUpperCase());
+          if (!(symbolOrError instanceof Error)) {
+            const stock = await this.stockRepository.findBySymbol(symbolOrError);
+            if (stock) {
+              // Émettre mise à jour de l'action (prix, quantité disponible) à tous les clients
+              this.socketServer.getIO().emit('stockUpdated', {
+                symbol: stock.symbol.value,
+                currentPrice: stock.currentPrice.value,
+                availableShares: stock.availableShares
+              });
+              console.log(`📡 [OrderController] Stock mis à jour via WebSocket: ${stock.symbol.value}, disponibles: ${stock.availableShares}`);
+            }
+          }
+
+          // Récupérer les holdings mis à jour de l'utilisateur
+          const holdings = await this.stockHoldingRepository.findByClientId(userId);
+          this.socketServer.getIO().to(`user:${userId}`).emit('holdingsUpdated', holdings);
+
+          // Récupérer le compte mis à jour de l'utilisateur
+          const accounts = await this.accountRepository.findByOwnerId(userId);
+          if (accounts.length > 0) {
+            this.socketServer.getIO().to(`user:${userId}`).emit('accountUpdated', {
+              balance: accounts[0].balance.value
+            });
+          }
+        } catch (wsError) {
+          console.error('Erreur lors de l\'émission WebSocket:', wsError);
         }
 
         res.status(201).json(this.toOrderDto(order));
@@ -196,6 +242,63 @@ export class OrderController {
 
         const cancelledOrder = order.cancel();
         await this.orderRepository.update(cancelledOrder);
+
+        // Si c'était un ordre BUY en attente, rembourser les fonds réservés
+        if (order.isBuyOrder() && order.isPending()) {
+          try {
+            // Récupérer le compte de l'utilisateur
+            const accounts = await this.accountRepository.findByOwnerId(userId);
+            if (accounts.length > 0) {
+              const account = accounts[0];
+              
+              // Calculer le montant à rembourser
+              const orderAmount = order.getPrice().multiply(order.getQuantity());
+              const fees = Amount.create(1);
+              if (!(fees instanceof Error)) {
+                const refundAmount = orderAmount.add(fees);
+                
+                // Créditer le compte
+                const creditedAccount = account.credit(refundAmount);
+                if (!(creditedAccount instanceof Error)) {
+                  await this.accountRepository.update(creditedAccount);
+                  
+                  // Créer une opération de remboursement
+                  const user = await this.userRepository.findById(userId);
+                  if (user && !(user instanceof Error)) {
+                    const transferDataOrError = TransferData.create(
+                      'AVENIR Bank',
+                      'Système',
+                      account.iban,
+                      user.lastname,
+                      user.firstname,
+                      account.iban,
+                      true,
+                      `Remboursement annulation ordre ${order.getStockSymbol().value}`
+                    );
+                    
+                    if (!(transferDataOrError instanceof Error)) {
+                      const operationId = Date.now();
+                      const operationOrError = OperationEntity.create(
+                        operationId,
+                        transferDataOrError,
+                        refundAmount,
+                        "COMPLETED"
+                      );
+                      
+                      if (!(operationOrError instanceof Error)) {
+                        const completedOp = operationOrError.complete();
+                        await this.operationRepository.save(completedOp);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (error: any) {
+            console.error('Erreur lors du remboursement:', error.message);
+            // Ne pas faire échouer l'annulation même si le remboursement échoue
+          }
+        }
 
         res.json(this.toOrderDto(cancelledOrder));
       } catch (error: any) {

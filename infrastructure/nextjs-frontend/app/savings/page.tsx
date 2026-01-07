@@ -13,9 +13,12 @@ import { formatDateShort } from '@/shared/utils/formatDate';
 
 export default function SavingsPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { savingsAccounts, createSavingsAccount, loading } = useAccounts(user?.id || null);
-  const { getTotalValue, loading: totalValueLoading } = useSavingsTotalValue();
+  const { savingsAccounts, createSavingsAccount, loading, refresh } = useAccounts(user?.id || null);
+  const { getTotalValue, withdrawRewards, loading: totalValueLoading } = useSavingsTotalValue();
   const [totalValues, setTotalValues] = useState<Map<number, { totalValue: number; accumulatedInterest: number }>>(new Map());
+  const [withdrawingRewards, setWithdrawingRewards] = useState<number | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -54,6 +57,36 @@ export default function SavingsPage() {
   if (!isAuthenticated || !user || user.role !== 'CLIENT') {
     return null;
   }
+
+  const handleWithdrawRewards = async (savingsAccountId: number) => {
+    setWithdrawingRewards(savingsAccountId);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    const result = await withdrawRewards(savingsAccountId);
+    
+    if (result instanceof Error) {
+      setErrorMessage(result.message);
+    } else {
+      setSuccessMessage(result.message);
+      // Rafraîchir les données
+      await refresh();
+      // Recharger les valeurs totales
+      const totalValue = await getTotalValue(savingsAccountId);
+      if (totalValue) {
+        setTotalValues(prev => {
+          const newMap = new Map(prev);
+          newMap.set(savingsAccountId, {
+            totalValue: totalValue.totalValue,
+            accumulatedInterest: totalValue.accumulatedInterest,
+          });
+          return newMap;
+        });
+      }
+    }
+    
+    setWithdrawingRewards(null);
+  };
 
   return (
     <div className="p-8 text-pearl">
@@ -100,16 +133,25 @@ export default function SavingsPage() {
                       {formatAmount(totalValues.get(savings.id)!.totalValue)}
                     </p>
                     {totalValues.get(savings.id)!.accumulatedInterest > 0 && (
-                      <p className="text-xs text-green-400 mt-1">
-                        + {formatAmount(totalValues.get(savings.id)!.accumulatedInterest)} d'intérêts accumulés
-                      </p>
+                      <>
+                        <p className="text-xs text-green-400 mt-1">
+                          + {formatAmount(totalValues.get(savings.id)!.accumulatedInterest)} d'intérêts accumulés
+                        </p>
+                        <button
+                          onClick={() => handleWithdrawRewards(savings.id)}
+                          disabled={withdrawingRewards === savings.id}
+                          className="mt-3 w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {withdrawingRewards === savings.id ? 'Retrait en cours...' : '💰 Retirer les récompenses'}
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
 
                 <div className="glass border border-gold/20 rounded-lg p-3 mt-3">
                   <p className="text-sm font-medium text-gold">
-                    Taux d'intérêt: {typeof savings.interestRate === 'number' ? (savings.interestRate * 100).toFixed(2) : '0.00'}%
+                    Taux d'intérêt: {typeof savings.interestRate === 'number' ? savings.interestRate.toFixed(2) : '0.00'}%
                   </p>
                   <p className="text-xs text-pearl/60 mt-1">
                     Les intérêts sont calculés quotidiennement

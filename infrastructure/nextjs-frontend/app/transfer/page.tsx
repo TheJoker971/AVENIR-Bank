@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/presentation/hooks/useAuth';
 import { useAccounts } from '@/presentation/hooks/useAccounts';
 import { useBeneficiaries } from '@/presentation/hooks/useBeneficiaries';
@@ -12,6 +12,7 @@ import { useActiveAccount } from '@/presentation/hooks/useActiveAccount';
 import { useRouter } from 'next/navigation';
 import { formatAmount, formatIban } from '@/shared/utils';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 
 type Tab = 'transfer' | 'beneficiaries' | 'iban';
 
@@ -41,6 +42,9 @@ export default function TransferPage() {
 
   // État pour copie IBAN
   const [copied, setCopied] = useState(false);
+  
+  // Ref pour le QR code (pour téléchargement)
+  const qrRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -131,9 +135,120 @@ export default function TransferPage() {
     }
   };
 
+  const downloadQRCode = () => {
+    if (!qrRef.current || !activeAccount) return;
+    
+    const svg = qrRef.current.querySelector('svg');
+    if (!svg) return;
+    
+    // Créer un canvas pour convertir le SVG en image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      
+      // Télécharger l'image
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const link = document.createElement('a');
+          link.download = `IBAN_${activeAccount.accountNumber}_QRCode.png`;
+          link.href = URL.createObjectURL(blob);
+          link.click();
+        }
+      });
+    };
+    
+    img.src = url;
+  };
+
   const downloadRIB = () => {
-    // TODO: Implémenter la génération de PDF du RIB
-    alert('Fonctionnalité de téléchargement PDF à venir');
+    if (!activeAccount || !user) return;
+    
+    // Créer le contenu HTML du RIB
+    const ribHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>RIB - AVENIR Bank</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; }
+          .rib-container { border: 2px solid #0EA5E9; padding: 30px; max-width: 600px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .header h1 { color: #0EA5E9; margin: 0; font-size: 24px; }
+          .header p { color: #64748b; margin: 5px 0; }
+          .section { margin: 20px 0; }
+          .section-title { font-weight: bold; color: #334155; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; }
+          .label { color: #64748b; }
+          .value { font-weight: bold; color: #1e293b; font-family: 'Courier New', monospace; }
+          .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="rib-container">
+          <div class="header">
+            <h1>👑 AVENIR BANK</h1>
+            <p>Banque Privée d'Excellence</p>
+            <p style="margin-top: 20px; font-size: 18px; color: #0EA5E9;">Relevé d'Identité Bancaire</p>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Titulaire du compte</div>
+            <div class="info-row">
+              <span class="label">Nom</span>
+              <span class="value">${user.lastname} ${user.firstname}</span>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Coordonnées bancaires</div>
+            <div class="info-row">
+              <span class="label">IBAN</span>
+              <span class="value">${formatIban(activeAccount.iban)}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Numéro de compte</span>
+              <span class="value">${activeAccount.accountNumber}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Code Banque</span>
+              <span class="value">12345</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Code Guichet</span>
+              <span class="value">67890</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>Ce document certifie l'exactitude des coordonnées bancaires ci-dessus.</p>
+            <p>Édité le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p style="margin-top: 15px;">AVENIR Bank - 1 Place de la Banque, 75001 Paris - SIRET: 123 456 789 00010</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    // Créer un Blob et télécharger
+    const blob = new Blob([ribHtml], { type: 'text/html' });
+    const link = document.createElement('a');
+    link.download = `RIB_${activeAccount.accountNumber}_AVENIR_Bank.html`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
   };
 
   if (authLoading) {
@@ -599,15 +714,24 @@ export default function TransferPage() {
                 <div className="luxury-card p-8">
                   <h2 className="text-xl font-bold text-slate-900 mb-6 text-center">QR Code</h2>
                   <div className="text-center">
-                    <div className="inline-block p-8 bg-white border-2 border-slate-200 rounded-2xl shadow-lg">
-                      {/* Placeholder pour le QR code - À remplacer par une vraie librairie */}
-                      <div className="w-48 h-48 bg-slate-100 flex items-center justify-center text-slate-400 text-sm">
-                        QR Code
-                        <br />
-                        (À implémenter)
-                      </div>
+                    <div ref={qrRef} className="inline-block p-8 bg-white border-2 border-slate-200 rounded-2xl shadow-lg">
+                      <QRCodeSVG 
+                        value={activeAccount.iban}
+                        size={192}
+                        level="H"
+                        includeMargin={true}
+                      />
                     </div>
-                    <p className="mt-4 text-sm text-slate-600">Scannez ce code pour obtenir mon IBAN</p>
+                    <p className="mt-4 text-sm text-slate-600 mb-4">Scannez ce code pour obtenir mon IBAN</p>
+                    <button
+                      onClick={downloadQRCode}
+                      className="btn-premium py-2 px-6 text-sm font-semibold flex items-center gap-2 mx-auto"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Télécharger le QR Code
+                    </button>
                   </div>
                 </div>
 

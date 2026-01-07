@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { SavingsAccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
+import { SavingsAccountRepositoryInterface, AccountRepositoryInterface } from '../../../application/repositories/AccountRepositoryInterface';
+import { OperationRepositoryInterface } from '../../../application/repositories/OperationRepositoryInterface';
 import { CreateSavingsAccountUseCase } from '../../../application/use-cases/savings/CreateSavingsAccountUseCase';
 import { CalculateDailyInterestUseCase } from '../../../application/use-cases/savings/CalculateDailyInterestUseCase';
+import { WithdrawInterestRewardsUseCase } from '../../../application/use-cases/savings/WithdrawInterestRewardsUseCase';
 import { UserRepositoryInMemory } from '../../repositories/in-memory/UserRepositoryInMemory';
 import { BankRepositoryInMemory } from '../../repositories/in-memory/BankRepositoryInMemory';
 import { NotificationRepositoryInMemory } from '../../repositories/in-memory/NotificationRepositoryInMemory';
@@ -11,9 +13,12 @@ export class SavingsAccountController {
   private router: Router;
   private createSavingsAccountUseCase: CreateSavingsAccountUseCase;
   private calculateDailyInterestUseCase: CalculateDailyInterestUseCase;
+  private withdrawInterestRewardsUseCase: WithdrawInterestRewardsUseCase;
 
   constructor(
-    private savingsAccountRepository: SavingsAccountRepositoryInterface
+    private savingsAccountRepository: SavingsAccountRepositoryInterface,
+    private accountRepository: AccountRepositoryInterface,
+    private operationRepository: OperationRepositoryInterface
   ) {
     this.router = Router();
     const userRepository = new UserRepositoryInMemory();
@@ -26,6 +31,13 @@ export class SavingsAccountController {
     );
     this.calculateDailyInterestUseCase = new CalculateDailyInterestUseCase(
       savingsAccountRepository,
+      notificationRepository,
+      userRepository
+    );
+    this.withdrawInterestRewardsUseCase = new WithdrawInterestRewardsUseCase(
+      savingsAccountRepository,
+      accountRepository,
+      operationRepository,
       notificationRepository,
       userRepository
     );
@@ -187,6 +199,36 @@ export class SavingsAccountController {
         console.error('Erreur lors du calcul des intérêts:', error);
         res.status(500).json({
           error: 'Erreur lors du calcul des intérêts quotidiens',
+          details: error.message,
+        });
+      }
+    });
+
+    // POST /api/savings-accounts/:id/withdraw-rewards - Retire les intérêts accumulés vers le compte courant
+    this.router.post('/:id/withdraw-rewards', requireAuth, async (req: Request, res: Response) => {
+      try {
+        const userId = (req as any).userId;
+        const savingsAccountId = parseInt(req.params.id);
+
+        if (isNaN(savingsAccountId)) {
+          return res.status(400).json({ error: 'ID de compte épargne invalide' });
+        }
+
+        const result = await this.withdrawInterestRewardsUseCase.execute(savingsAccountId, userId);
+
+        if (result instanceof Error) {
+          return res.status(400).json({ error: result.message });
+        }
+
+        res.json({
+          success: true,
+          withdrawnAmount: result.withdrawnAmount,
+          message: result.message,
+        });
+      } catch (error: any) {
+        console.error('Erreur lors du retrait des récompenses:', error);
+        res.status(500).json({
+          error: 'Erreur lors du retrait des récompenses',
           details: error.message,
         });
       }

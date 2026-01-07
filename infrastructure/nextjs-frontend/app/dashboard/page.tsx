@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useActiveAccount } from '@/presentation/hooks/useActiveAccount';
 import { useOperations } from '@/presentation/hooks/useOperations';
 import { useAccounts } from '@/presentation/hooks/useAccounts';
+import { useWebSocket } from '@/presentation/hooks/useWebSocket';
 import { formatAmount } from '@/shared/utils';
 import { OperationDto } from '@/shared/dto';
 
@@ -21,30 +22,28 @@ export default function DashboardPage() {
   const [operations, setOperations] = useState<OperationDto[]>([]);
   const [loadingOperations, setLoadingOperations] = useState(true);
   const router = useRouter();
+  
+  // Utiliser WebSocket pour les mises à jour en temps réel
+  const socket = useWebSocket(user?.id || null);
 
-  // Charger le compte actif
+  // Charger le compte actif (une seule fois)
   useEffect(() => {
     if (user && isAuthenticated && user.role === 'CLIENT') {
       fetchActiveAccount(user.id);
     }
-  }, [user, isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isAuthenticated]);
 
-  // Charger les opérations du compte actif (et recharger quand refreshTrigger change)
+  // Charger les opérations du compte actif
   useEffect(() => {
     const loadOperations = async () => {
-      if (activeAccount) {
-        console.log('🔄 [Dashboard] Chargement des opérations pour compte actif:', activeAccount.id, activeAccount.iban);
+      if (activeAccount?.id) {
         setLoadingOperations(true);
         const ops = await getAccountOperations(activeAccount.id);
-        console.log('📊 [Dashboard] Opérations reçues:', ops?.length || 0);
         if (ops) {
-          // Trier par date décroissante (les plus récentes en premier)
           const sortedOps = [...ops].sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            return dateB - dateA; // Décroissant
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
           });
-          // Garder seulement les 10 dernières opérations
           setOperations(sortedOps.slice(0, 10));
         } else {
           setOperations([]);
@@ -53,11 +52,39 @@ export default function DashboardPage() {
       }
     };
 
-    if (activeAccount) {
-      loadOperations();
-    }
+    loadOperations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAccount, refreshTrigger]);
+  }, [activeAccount?.id, refreshTrigger]);
+
+  // Écouter les événements WebSocket pour les mises à jour en temps réel
+  useEffect(() => {
+    if (!socket || !activeAccount?.id) return;
+
+    // Écouter les nouvelles opérations
+    socket.on('new-operation', (operation: OperationDto) => {
+      console.log('📨 Nouvelle opération reçue via WebSocket:', operation);
+      setOperations(prev => {
+        const updated = [operation, ...prev];
+        const sortedOps = updated.sort((a, b) => {
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+        return sortedOps.slice(0, 10);
+      });
+    });
+
+    // Écouter les mises à jour du compte
+    socket.on('account-updated', () => {
+      console.log('💰 Compte mis à jour via WebSocket');
+      if (user?.id) {
+        fetchActiveAccount(user.id);
+      }
+    });
+
+    return () => {
+      socket.off('new-operation');
+      socket.off('account-updated');
+    };
+  }, [socket, activeAccount?.id, user?.id, fetchActiveAccount]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
