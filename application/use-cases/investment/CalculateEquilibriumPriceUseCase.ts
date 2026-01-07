@@ -59,23 +59,50 @@ export class CalculateEquilibriumPriceUseCase {
       });
 
     // Calculer le prix d'équilibre
-    // Méthode: Trouver le meilleur prix d'achat >= meilleur prix de vente
-    if (buyOrders.length === 0 || sellOrders.length === 0) {
-      // Pas d'intersection possible, retourner le prix actuel
-      return stock.getCurrentPrice();
+    // Nouvelle méthode: Toujours calculer un prix basé sur l'offre et la demande
+    
+    // Cas 1: Seulement des ordres d'achat (demande)
+    if (buyOrders.length > 0 && sellOrders.length === 0) {
+      // Le prix tend vers le meilleur prix d'achat
+      const bestBuyPrice = buyOrders[0].getPrice().value;
+      const currentPrice = stock.getCurrentPrice().value;
+      // Prix = moyenne pondérée entre prix actuel et meilleur prix d'achat
+      const newPrice = (currentPrice * 0.7 + bestBuyPrice * 0.3);
+      console.log(`📊 [CalculateEquilibrium] Seulement achats: ${currentPrice}€ → ${newPrice.toFixed(2)}€`);
+      return Amount.create(newPrice);
     }
 
-    const bestBuyPrice = buyOrders[0].getPrice().value; // Prix le plus élevé proposé
-    const bestSellPrice = sellOrders[0].getPrice().value; // Prix le plus bas demandé
-
-    if (bestBuyPrice >= bestSellPrice) {
-      // Il y a une intersection: le prix d'équilibre est le prix moyen
-      const equilibriumPrice = (bestBuyPrice + bestSellPrice) / 2;
-      const priceOrError = Amount.create(equilibriumPrice);
-      return priceOrError instanceof Error ? stock.getCurrentPrice() : priceOrError;
+    // Cas 2: Seulement des ordres de vente (offre)
+    if (sellOrders.length > 0 && buyOrders.length === 0) {
+      // Le prix tend vers le meilleur prix de vente
+      const bestSellPrice = sellOrders[0].getPrice().value;
+      const currentPrice = stock.getCurrentPrice().value;
+      // Prix = moyenne pondérée entre prix actuel et meilleur prix de vente
+      const newPrice = (currentPrice * 0.7 + bestSellPrice * 0.3);
+      console.log(`📊 [CalculateEquilibrium] Seulement ventes: ${currentPrice}€ → ${newPrice.toFixed(2)}€`);
+      return Amount.create(newPrice);
     }
 
-    // Pas d'intersection directe, retourner le prix actuel de l'action
+    // Cas 3: Ordres d'achat ET de vente
+    if (buyOrders.length > 0 && sellOrders.length > 0) {
+      const bestBuyPrice = buyOrders[0].getPrice().value;
+      const bestSellPrice = sellOrders[0].getPrice().value;
+
+      if (bestBuyPrice >= bestSellPrice) {
+        // Il y a une intersection, calculer le prix d'équilibre
+        const equilibriumPrice = (bestBuyPrice + bestSellPrice) / 2;
+        console.log(`📊 [CalculateEquilibrium] Intersection: ${equilibriumPrice.toFixed(2)}€ (achat: ${bestBuyPrice}€, vente: ${bestSellPrice}€)`);
+        return Amount.create(equilibriumPrice);
+      } else {
+        // Pas d'intersection directe, mais on calcule quand même un nouveau prix
+        // Prix = moyenne entre le meilleur prix d'achat et le meilleur prix de vente
+        const midPrice = (bestBuyPrice + bestSellPrice) / 2;
+        console.log(`📊 [CalculateEquilibrium] Pas d'intersection: ${midPrice.toFixed(2)}€ (achat: ${bestBuyPrice}€, vente: ${bestSellPrice}€)`);
+        return Amount.create(midPrice);
+      }
+    }
+
+    // Cas 4: Aucun ordre (ne devrait pas arriver ici)
     return stock.getCurrentPrice();
   }
 

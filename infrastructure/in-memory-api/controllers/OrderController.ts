@@ -64,7 +64,7 @@ export class OrderController {
     return {
       id: order.id,
       stockSymbol: order.stockSymbol?.value || order.stockSymbol || '',
-      orderType: order.orderType?.value || order.orderType || '',
+      type: order.orderType?.value || order.orderType || '', // Frontend attend 'type' pas 'orderType'
       quantity: order.quantity,
       price: typeof order.price === 'number' ? order.price : (order.price?.value || 0),
       totalAmount: typeof order.totalAmount === 'number' ? order.totalAmount : (order.totalAmount?.value || 0),

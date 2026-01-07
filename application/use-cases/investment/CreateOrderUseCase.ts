@@ -7,6 +7,7 @@ import { StockHoldingRepositoryInterface } from "application/repositories/StockH
 import { MatchOrdersUseCase } from "./MatchOrdersUseCase";
 import { ExecuteMatchedOrdersUseCase } from "./ExecuteMatchedOrdersUseCase";
 import { ExecuteInstantTradeUseCase } from "./ExecuteInstantTradeUseCase";
+import { CalculateEquilibriumPriceUseCase } from "./CalculateEquilibriumPriceUseCase";
 import { StockSymbol } from "domain/values/StockSymbol";
 import { Amount } from "domain/values/Amount";
 import { TransferData } from "domain/values/TransferData";
@@ -16,6 +17,7 @@ export class CreateOrderUseCase {
   private matchOrdersUseCase: MatchOrdersUseCase;
   private executeMatchedOrdersUseCase: ExecuteMatchedOrdersUseCase;
   private executeInstantTradeUseCase: ExecuteInstantTradeUseCase;
+  private calculateEquilibriumPriceUseCase: CalculateEquilibriumPriceUseCase;
 
   constructor(
     private orderRepository: OrderRepositoryInterface,
@@ -44,6 +46,10 @@ export class CreateOrderUseCase {
       userRepository,
       notificationRepository,
       orderRepository
+    );
+    this.calculateEquilibriumPriceUseCase = new CalculateEquilibriumPriceUseCase(
+      orderRepository,
+      stockRepository
     );
   }
 
@@ -231,6 +237,31 @@ export class CreateOrderUseCase {
 
     // Sauvegarder l'ordre
     await this.orderRepository.save(order);
+    console.log(`✅ [CreateOrderUseCase] Ordre sauvegardé: ${orderType} ${quantity} ${stockSymbolOrError.value}`);
+
+    // Recalculer le prix d'équilibre après l'ajout de l'ordre
+    try {
+      console.log(`🔄 [CreateOrderUseCase] Début du recalcul du prix pour ${stockSymbolOrError.value}`);
+      const equilibriumPrice = await this.calculateEquilibriumPriceUseCase.execute(stockSymbolOrError);
+      
+      if (equilibriumPrice instanceof Error) {
+        console.log(`⚠️ [CreateOrderUseCase] Erreur lors du calcul: ${equilibriumPrice.message}`);
+      } else {
+        console.log(`📊 [CreateOrderUseCase] Prix d'équilibre calculé: ${equilibriumPrice.value}€`);
+        const stock = await this.stockRepository.findBySymbol(stockSymbolOrError);
+        if (stock) {
+          const currentPrice = stock.getCurrentPrice().value;
+          const updatedStock = stock.updatePrice(equilibriumPrice);
+          await this.stockRepository.update(updatedStock);
+          console.log(`📊 [CreateOrderUseCase] Prix mis à jour: ${currentPrice}€ → ${equilibriumPrice.value}€`);
+        } else {
+          console.log(`⚠️ [CreateOrderUseCase] Action non trouvée pour mise à jour du prix`);
+        }
+      }
+    } catch (error) {
+      console.error("❌ [CreateOrderUseCase] Erreur lors du recalcul du prix d'équilibre:", error);
+      // Ne pas faire échouer la création de l'ordre
+    }
 
     // Déclencher le matching automatique après création de l'ordre
     try {
